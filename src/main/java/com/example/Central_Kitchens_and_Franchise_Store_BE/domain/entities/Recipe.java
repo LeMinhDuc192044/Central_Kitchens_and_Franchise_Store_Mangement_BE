@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "recipe")
@@ -36,8 +38,10 @@ public class Recipe {
     private String materialUsageStandard;
 
     @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL)
-    private Set<RecipeIngredient> recipeIngredients;
+    @Builder.Default
+    private Set<RecipeIngredient> recipeIngredients = new HashSet<>();
 
     @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL)
-    private Set<Food> foods;
+    @Builder.Default
+    private Set<CentralFoods> foods = new HashSet<>();
 }

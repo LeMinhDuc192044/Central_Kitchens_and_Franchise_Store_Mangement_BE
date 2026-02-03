@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -44,14 +45,18 @@ public class FranchiseStore {
     private String numberOfContact;
 
     @OneToMany(mappedBy = "franchiseStore", cascade = CascadeType.ALL)
-    private Set<FranchiseStorePaymentMethod> paymentMethods;
+    @Builder.Default
+    private Set<FranchiseStorePaymentMethod> paymentMethods = new HashSet<>();
 
     @OneToMany(mappedBy = "franchiseStore", cascade = CascadeType.ALL)
-    private Set<FranchiseStorePaymentMethod> paymentRecords;
+    @Builder.Default
+    private Set<FranchiseStorePaymentMethod> paymentRecords = new HashSet<>();
 
     @OneToMany(mappedBy = "franchiseStore", cascade = CascadeType.ALL)
-    private Set<FranchiseStoresFood> storeFoods;
+    @Builder.Default
+    private Set<FranchiseStoresFood> storeFoods = new HashSet<>();
 
     @OneToMany(mappedBy = "franchiseStore", cascade = CascadeType.ALL)
-    private Set<Order> orders;
+    @Builder.Default
+    private Set<Order> orders = new HashSet<>();
 }

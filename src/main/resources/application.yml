@@ -1,0 +1,28 @@
+spring:
+    application:
+        name: Central_Kitchens_and_Franchise_Store_BE
+
+    datasource:
+        url: jdbc:mysql://localhost:3306/CENTRAL_KITCHEN_MANGEMENT
+        username: root
+        password: 12345
+        driver-class-name: com.mysql.cj.jdbc.Driver
+
+    jpa:
+      hibernate:
+        ddl-auto: update
+      show-sql: true
+      open-in-view: false
+
+server:
+  port: 8081
+
+springdoc:
+    api-docs:
+        path: /api-docs
+    swagger-ui:
+        path: /swagger-ui.html
+        enabled: true
+
+
+

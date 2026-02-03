@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "ingredient")
@@ -53,5 +55,6 @@ public class Ingredient {
     private IngredientCategory ingredientCategory;
 
     @OneToMany(mappedBy = "ingredient", cascade = CascadeType.ALL)
-    private Set<RecipeIngredient> recipeIngredients;
+    @Builder.Default
+    private Set<RecipeIngredient> recipeIngredients = new HashSet<>();
 }

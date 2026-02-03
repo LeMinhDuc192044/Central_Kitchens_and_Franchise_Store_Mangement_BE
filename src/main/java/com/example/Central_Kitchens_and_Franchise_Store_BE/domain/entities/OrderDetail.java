@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.Set;
 
 @Entity
@@ -41,7 +42,8 @@ public class OrderDetail {
     private Shipment shipment;
 
     @OneToMany(mappedBy = "orderDetail", cascade = CascadeType.ALL)
-    private Set<Feedback> feedbacks;
+    @Builder.Default
+    private Set<Feedback> feedbacks = new HashSet<>();
 
     @OneToOne(mappedBy = "orderDetail", cascade = CascadeType.ALL)
     private OrderInvoice orderInvoice;

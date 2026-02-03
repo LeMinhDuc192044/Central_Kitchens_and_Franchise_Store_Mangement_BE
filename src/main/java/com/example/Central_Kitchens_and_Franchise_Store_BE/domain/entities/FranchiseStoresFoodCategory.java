@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.HashSet;
 import java.util.Set;
 
 @Entity
@@ -24,5 +25,6 @@ public class FranchiseStoresFoodCategory {
     private String foodTypeName;
 
     @OneToMany(mappedBy = "foodCategory", cascade = CascadeType.ALL)
-    private Set<FranchiseStoresFood> foods;
+    @Builder.Default
+    private Set<FranchiseStoresFood> foods = new HashSet<>();
 }
