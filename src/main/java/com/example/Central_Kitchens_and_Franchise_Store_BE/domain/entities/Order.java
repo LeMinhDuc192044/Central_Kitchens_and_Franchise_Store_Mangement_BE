@@ -40,7 +40,7 @@ public class Order {
     @JoinColumn(name = "store_id_fk", referencedColumnName = "store_id", insertable = false, updatable = false)
     private FranchiseStore franchiseStore;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "orderDetailId", cascade = CascadeType.ALL)
     @Builder.Default
     private List<OrderDetail> orderDetails = new ArrayList<>();
 }

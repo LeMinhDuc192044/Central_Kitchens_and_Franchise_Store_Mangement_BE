@@ -50,6 +50,14 @@
 			<scope>test</scope>
 		</dependency>
 
+        <!-- Source: https://mvnrepository.com/artifact/io.swagger.core.v3/swagger-annotations -->
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations</artifactId>
+            <version>2.2.42</version>
+            <scope>compile</scope>
+        </dependency>
+
         <!-- Source: https://mvnrepository.com/artifact/org.projectlombok/lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
