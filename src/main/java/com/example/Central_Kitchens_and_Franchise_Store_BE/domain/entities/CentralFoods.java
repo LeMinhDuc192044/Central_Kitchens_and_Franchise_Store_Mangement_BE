@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "central_foods")
@@ -54,5 +56,6 @@ public class CentralFoods {
     private CentralFoodCategory foodType;
 
     @OneToMany(mappedBy = "food", cascade = CascadeType.ALL)
-    private Set<CentralKitchenFoodOrderDetail> orderDetails;
+    @Builder.Default
+    private Set<CentralKitchenFoodOrderDetail> orderDetails = new HashSet<>();
 }

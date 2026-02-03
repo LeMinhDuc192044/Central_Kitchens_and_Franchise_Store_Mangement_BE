@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -40,5 +41,6 @@ public class Order {
     private FranchiseStore franchiseStore;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-    private List<OrderDetail> orderDetails;
+    @Builder.Default
+    private List<OrderDetail> orderDetails = new ArrayList<>();
 }
