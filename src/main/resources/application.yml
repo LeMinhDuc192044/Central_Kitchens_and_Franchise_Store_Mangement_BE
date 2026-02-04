@@ -17,38 +17,7 @@ spring:
 server:
   port: 8081
   servlet:
-    context-path: /
+    context-path: /api
 
-springdoc:
-    api-docs:
-        path: /api-docs
-    swagger-ui:
-        path: /swagger-ui.html
-        enabled: true
-    group-configs:
-      - group: Ingredient Management
-        paths-to-match: /api/ingredients/**
-        display-name: Ingredient APIs
-      - group: Recipe Management
-        paths-to-match: /api/recipes/**
-        display-name: Recipe APIs
-      - group: Food Management
-        paths-to-match: /api/foods/**
-        display-name: Food APIs
-      - group: Franchise Store Management
-        paths-to-match: /api/stores/**
-        display-name: Franchise Store APIs
-      - group: Order Management
-        paths-to-match: /api/orders/**
-        display-name: Order APIs
-      - group: Shipment Management
-        paths-to-match: /api/shipments/**
-        display-name: Shipment APIs
-      - group: Payment Management
-        paths-to-match: /api/payments/**
-        display-name: Payment APIs
-      - group: Feedback Management
-        paths-to-match: /api/feedbacks/**
-        display-name: Feedback APIs
 
 
