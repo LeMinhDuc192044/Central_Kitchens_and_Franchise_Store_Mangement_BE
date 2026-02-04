@@ -2,6 +2,8 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderUpdateRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -11,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController  // Kết hợp @Controller + @ResponseBody
 @RequestMapping("/orders")  // Base URL
@@ -73,4 +76,37 @@ public class OrderController {
         orderService.deleteOrder(orderId);
         return ResponseEntity.noContent().build();  // Status 204 NO CONTENT
     }
+
+
+    //Cập nhật trạng thái đơn hàng
+    @PutMapping("/{orderId}/status")
+    @Operation(summary = "Update order status", description = "Update the status of an order with validation")
+    public ResponseEntity<OrderResponse> updateOrderStatus(
+            @PathVariable String orderId,  // ← Đổi từ Long sang String
+            @Valid @RequestBody OrderUpdateRequest updateRequest) {
+
+        OrderResponse response = orderService.updateOrderStatus(orderId, updateRequest);
+        return ResponseEntity.ok(response);
+    }
+
+    //Hủy đơn hàng
+    @PostMapping("/{orderId}/cancel")
+    @Operation(summary = "Cancel order", description = "Cancel an order with reason")
+    public ResponseEntity<OrderResponse> cancelOrder(
+            @PathVariable String orderId,  // ← Đổi từ Long sang String
+            @RequestParam(required = false) String reason) {
+
+        OrderResponse response = orderService.cancelOrder(orderId, reason);
+        return ResponseEntity.ok(response);
+    }
+
+
+//    //Xem các luồng đi hợp lệ của status
+//    @GetMapping("/{orderId}/available-transitions")
+//    @Operation(summary = "Get available status transitions",
+//            description = "Get list of statuses that the order can transition to")
+//    public ResponseEntity<Set<OrderStatus>> getAvailableTransitions(@PathVariable String orderId) {
+//        Set<OrderStatus> transitions = orderService.getAvailableStatusTransitions(orderId);
+//        return ResponseEntity.ok(transitions);
+//    }
 }
