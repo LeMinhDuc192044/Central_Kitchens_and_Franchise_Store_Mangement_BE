@@ -32,7 +32,6 @@ public class OrderService {
         // Bước 1: Chuyển từ DTO Request → Entity
         Order order = Order.builder()
                 .orderId(request.getOrderId())
-                .priorityLevel(request.getPriorityLevel())
                 .note(request.getNote())
                 .statusOrder(OrderStatus.PENDING)
                 .storeId(request.getStoreId())
@@ -70,7 +69,6 @@ public class OrderService {
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
         // Bước 2: Cập nhật các field
-        order.setPriorityLevel(request.getPriorityLevel());
         order.setNote(request.getNote());
         order.setStoreId(request.getStoreId());
 
