@@ -100,13 +100,4 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-
-//    //Xem các luồng đi hợp lệ của status
-//    @GetMapping("/{orderId}/available-transitions")
-//    @Operation(summary = "Get available status transitions",
-//            description = "Get list of statuses that the order can transition to")
-//    public ResponseEntity<Set<OrderStatus>> getAvailableTransitions(@PathVariable String orderId) {
-//        Set<OrderStatus> transitions = orderService.getAvailableStatusTransitions(orderId);
-//        return ResponseEntity.ok(transitions);
-//    }
 }

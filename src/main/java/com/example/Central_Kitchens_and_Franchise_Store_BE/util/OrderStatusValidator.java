@@ -56,18 +56,4 @@ public class OrderStatusValidator {
     }
 
 
-    public boolean isValidTransition(OrderStatus currentStatus, OrderStatus newStatus) {
-        if (currentStatus == newStatus) {
-            return true;
-        }
-
-        Set<OrderStatus> allowedTransitions = VALID_TRANSITIONS.get(currentStatus);
-        return allowedTransitions != null && allowedTransitions.contains(newStatus);
-    }
-
-
-    public Set<OrderStatus> getAllowedTransitions(OrderStatus currentStatus) {
-        return VALID_TRANSITIONS.getOrDefault(currentStatus, Set.of());
-    }
-
 }
