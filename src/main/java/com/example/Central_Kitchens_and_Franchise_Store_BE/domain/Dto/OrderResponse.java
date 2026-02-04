@@ -1,5 +1,6 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.Dto;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,6 +17,6 @@ public class OrderResponse {
     private Integer priorityLevel;
     private String note;
     private LocalDate orderDate;  // Có orderDate để hiển thị
-    private String statusOrder;
+    private OrderStatus statusOrder;
     private String storeId;
 }

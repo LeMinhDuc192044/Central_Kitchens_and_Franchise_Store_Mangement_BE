@@ -1,11 +1,10 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.service;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.Dto.OrderRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.Dto.OrderResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStore;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.repository.FranchiseStoreRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.repository.OrderRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,7 +18,7 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private final OrderRepository orderRepository;
-    private final FranchiseStoreRepository franchiseStoreRepository;
+
 
     // 1. TẠO ORDER MỚI
     @Transactional  // Đảm bảo transaction, rollback nếu có lỗi
@@ -30,7 +29,7 @@ public class OrderService {
                 .orderId(request.getOrderId())
                 .priorityLevel(request.getPriorityLevel())
                 .note(request.getNote())
-                .statusOrder(request.getStatusOrder())
+                .statusOrder(OrderStatus.PENDING)
                 .storeId(request.getStoreId())
                 .orderDate(LocalDate.now())
                 .build();
@@ -68,9 +67,7 @@ public class OrderService {
         // Bước 2: Cập nhật các field
         order.setPriorityLevel(request.getPriorityLevel());
         order.setNote(request.getNote());
-        order.setStatusOrder(request.getStatusOrder());
         order.setStoreId(request.getStoreId());
-        order.setOrderDate(request.getOrderDate());
 
         // Bước 3: Lưu lại (JPA tự động update)
         Order updatedOrder = orderRepository.save(order);

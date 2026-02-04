@@ -8,7 +8,6 @@ public class CentralKitchensAndFranchiseStoreBeApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(CentralKitchensAndFranchiseStoreBeApplication.class, args);
-        System.out.println("Hello");
 	}
 
 }

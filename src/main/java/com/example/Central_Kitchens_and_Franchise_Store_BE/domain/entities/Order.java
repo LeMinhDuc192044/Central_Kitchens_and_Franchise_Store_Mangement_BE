@@ -1,6 +1,9 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,6 +25,8 @@ public class Order {
     private String orderId;
 
     @Column(name = "priority_level")
+    @Min(value = 1, message = "Priority level must be between 1 and 3")
+    @Max(value = 3, message = "Priority level must be between 1 and 3")
     private Integer priorityLevel;
 
     @Column(name = "note")
@@ -31,7 +36,8 @@ public class Order {
     private LocalDate orderDate;
 
     @Column(name = "status_order")
-    private String statusOrder;
+    @Enumerated(EnumType.STRING)
+    private OrderStatus statusOrder;
 
     @Column(name = "store_id_fk")
     private String storeId;
