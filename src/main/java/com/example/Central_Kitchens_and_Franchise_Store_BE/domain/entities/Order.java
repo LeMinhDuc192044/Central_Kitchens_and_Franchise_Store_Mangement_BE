@@ -8,6 +8,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +35,7 @@ public class Order {
     private String note;
 
     @Column(name = "order_date")
+    @CreationTimestamp
     private LocalDate orderDate;
 
     @Column(name = "status_order")

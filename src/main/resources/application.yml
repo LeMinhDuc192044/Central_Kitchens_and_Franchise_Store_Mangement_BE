@@ -3,10 +3,10 @@ spring:
         name: Central_Kitchens_and_Franchise_Store_BE
 
     datasource:
-        url: jdbc:mysql://localhost:3306/CENTRAL_KITCHEN_MANGEMENT
-        username: root
-        password: 12345
-        driver-class-name: com.mysql.cj.jdbc.Driver
+       url: ${DATABASE_URL}
+       username: ${DATABASE_USERNAME}
+       password: ${DATABASE_PASSWORD}
+       driver-class-name: com.mysql.cj.jdbc.Driver
 
     jpa:
       hibernate:
@@ -15,9 +15,28 @@ spring:
       open-in-view: false
 
 server:
-  port: 8081
+  port: 8080
   servlet:
     context-path: /api
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: 86400000        # 24 hours (1 day)
+    refresh-expiration: 604800000  # 7 days
+
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS}
+    allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
+
+
+springdoc:
+    api-docs:
+        path: /api-docs
+    swagger-ui:
+        path: /swagger-ui.html
+        enabled: true
 
 
 
