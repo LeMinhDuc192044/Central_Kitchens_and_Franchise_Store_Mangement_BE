@@ -19,14 +19,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 
-@RestController  // Kết hợp @Controller + @ResponseBody
-@RequestMapping("/orders")  // Base URL
+@RestController
+@RequestMapping("/orders")
 @RequiredArgsConstructor
 public class OrderController {
 
     private final OrderService orderService;
 
-    // 1. TẠO ORDER - POST /api/orders
+    // 1. TẠO ORDER
     @PostMapping
     @Operation(summary = "Create order")
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest request) {
@@ -37,17 +37,16 @@ public class OrderController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-    // 2. LẤY ORDER THEO ID - GET /api/orders/{orderId}
+    // 2. LẤY ORDER THEO ID
     @GetMapping("/{orderId}")
-    @Operation(summary = "Get order by id")
+    @Operation(summary = "Get order by order id")
     public ResponseEntity<OrderResponse> getOrderById(@PathVariable String orderId) {
-        // @PathVariable: Lấy giá trị từ URL
-        // Ví dụ: /api/orders/ORD001 → orderId = "ORD001"
+
         OrderResponse response = orderService.getOrderById(orderId);
         return ResponseEntity.ok(response);  // Status 200 OK
     }
 
-    // 3. LẤY TẤT CẢ ORDERS - GET /api/orders
+    // 3. LẤY TẤT CẢ ORDERS
     @GetMapping
     @Operation(summary = "Get all orders")
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
@@ -55,7 +54,7 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-    // 4. LẤY ORDERS THEO STORE - GET /api/orders/store/{storeId}
+    // 4. LẤY ORDERS THEO STORE ID
     @GetMapping("/orders/{storeId}")
     @Operation(summary = "Get order by store id")
     public ResponseEntity<List<OrderResponse>> getOrdersByStore(@PathVariable String storeId) {
@@ -63,15 +62,15 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-    // 5. CẬP NHẬT ORDER - PUT /api/orders/{orderId}
-    @PutMapping("/{orderId}")
-    @Operation(summary = "Update order")
-    public ResponseEntity<OrderResponse> updateOrder(@Valid
-            @PathVariable String orderId,
-            @RequestBody OrderRequest request) {
-        OrderResponse response = orderService.updateOrder(orderId, request);
-        return ResponseEntity.ok(response);
-    }
+//    // 5. CẬP NHẬT ORDER
+//    @PutMapping("/{orderId}")
+//    @Operation(summary = "Update order")
+//    public ResponseEntity<OrderResponse> updateOrder(@Valid
+//            @PathVariable String orderId,
+//            @RequestBody OrderRequest request) {
+//        OrderResponse response = orderService.updateOrder(orderId, request);
+//        return ResponseEntity.ok(response);
+//    }
 
     // 6. XÓA ORDER - DELETE /api/orders/{orderId}
     @DeleteMapping("/{orderId}")
@@ -82,7 +81,7 @@ public class OrderController {
     }
 
 
-    //Cập nhật trạng thái đơn hàng
+    //7. Update order's status
     @PutMapping("/{orderId}/status")
     @Operation(summary = "Update order status", description = "Update the status of an order with validation")
     public ResponseEntity<OrderResponse> updateOrderStatus(
@@ -93,7 +92,7 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    //Hủy đơn hàng
+    //8. Cancel order
     @PostMapping("/{orderId}/cancel")
     @Operation(summary = "Cancel order", description = "Cancel an order with reason")
     public ResponseEntity<OrderResponse> cancelOrder(
@@ -104,7 +103,7 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    //Update priority level
+    //9. Update priority level
     @Operation(
             summary = "Update order priority",
             description = "Update the priority level of an order (1=HIGH, 2=MEDIUM, 3=LOW). " +

@@ -16,7 +16,7 @@ public class OrderResponse {
     private String orderId;
     private Integer priorityLevel;
     private String note;
-    private LocalDate orderDate;  // Có orderDate để hiển thị
+    private LocalDate orderDate;
     private OrderStatus statusOrder;
     private String storeId;
 }

@@ -30,9 +30,10 @@ public class OrderService {
 
 
     // 1. TẠO ORDER MỚI
-    @Transactional  // Đảm bảo transaction, rollback nếu có lỗi
+    @Transactional
     public OrderResponse createOrder(OrderRequest request) {
 
+        // Tự generate ra ID theo format ORDxxx
         String orderID = orderIdGenerator.generateOrderId();
 
         // Bước 1: Chuyển từ DTO Request → Entity
@@ -53,7 +54,6 @@ public class OrderService {
 
     // 2. LẤY ORDER THEO ID
     public OrderResponse getOrderById(String orderId) {
-        // Tìm trong database, ném exception nếu không tìm thấy
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
@@ -67,22 +67,22 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
-    // 4. CẬP NHẬT ORDER
-    @Transactional
-    public OrderResponse updateOrder(String orderId, OrderRequest request) {
-        // Bước 1: Tìm order cần update
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-
-        // Bước 2: Cập nhật các field
-        order.setNote(request.getNote());
-        order.setStoreId(request.getStoreId());
-
-        // Bước 3: Lưu lại (JPA tự động update)
-        Order updatedOrder = orderRepository.save(order);
-
-        return mapToResponse(updatedOrder);
-    }
+//    // 4. CẬP NHẬT ORDER
+//    @Transactional
+//    public OrderResponse updateOrder(String orderId, OrderRequest request) {
+//        // Bước 1: Tìm order cần update
+//        Order order = orderRepository.findById(orderId)
+//                .orElseThrow(() -> new RuntimeException("Order not found"));
+//
+//        // Bước 2: Cập nhật các field
+//        order.setNote(request.getNote());
+//        order.setStoreId(request.getStoreId());
+//
+//        // Bước 3: Lưu lại (JPA tự động update)
+//        Order updatedOrder = orderRepository.save(order);
+//
+//        return mapToResponse(updatedOrder);
+//    }
 
     // 5. XÓA ORDER
     @Transactional
@@ -93,6 +93,7 @@ public class OrderService {
         orderRepository.deleteById(orderId);
     }
 
+    //6. Update Order Status
     @Transactional
     public OrderResponse updateOrderStatus(String orderId, OrderUpdateRequest updateRequest) {
 
@@ -173,6 +174,25 @@ public class OrderService {
         return mapToResponse(savedOrder);
     }
 
+    //8. Lấy order by storeID
+    public List<OrderResponse> getOrdersByStoreId(String storeId) {
+        return orderRepository.findByStoreId(storeId)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    // 9. Cancel order
+    @Transactional
+    public OrderResponse cancelOrder(String orderId, String reason) {
+        OrderUpdateRequest updateRequest = new OrderUpdateRequest();
+        updateRequest.setNewStatus(OrderStatus.CANCELLED);
+        updateRequest.setNote(reason);
+
+        return updateOrderStatus(orderId, updateRequest);
+    }
+
+
     // Helper method: Chuyển Entity → Response DTO
     private OrderResponse mapToResponse(Order order) {
         return OrderResponse.builder()
@@ -183,22 +203,6 @@ public class OrderService {
                 .statusOrder(order.getStatusOrder())
                 .storeId(order.getStoreId())
                 .build();
-    }
-
-    public List<OrderResponse> getOrdersByStoreId(String storeId) {
-        return orderRepository.findByStoreId(storeId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional
-    public OrderResponse cancelOrder(String orderId, String reason) {
-        OrderUpdateRequest updateRequest = new OrderUpdateRequest();
-        updateRequest.setNewStatus(OrderStatus.CANCELLED);
-        updateRequest.setNote(reason);
-
-        return updateOrderStatus(orderId, updateRequest);
     }
 
 }
