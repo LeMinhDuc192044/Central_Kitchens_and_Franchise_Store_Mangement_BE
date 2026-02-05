@@ -3,17 +3,21 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderUpdateRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.PriorityUpdateRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
-import java.util.Set;
+
 
 @RestController  // Kết hợp @Controller + @ResponseBody
 @RequestMapping("/orders")  // Base URL
@@ -82,7 +86,7 @@ public class OrderController {
     @PutMapping("/{orderId}/status")
     @Operation(summary = "Update order status", description = "Update the status of an order with validation")
     public ResponseEntity<OrderResponse> updateOrderStatus(
-            @PathVariable String orderId,  // ← Đổi từ Long sang String
+            @PathVariable String orderId,
             @Valid @RequestBody OrderUpdateRequest updateRequest) {
 
         OrderResponse response = orderService.updateOrderStatus(orderId, updateRequest);
@@ -93,10 +97,47 @@ public class OrderController {
     @PostMapping("/{orderId}/cancel")
     @Operation(summary = "Cancel order", description = "Cancel an order with reason")
     public ResponseEntity<OrderResponse> cancelOrder(
-            @PathVariable String orderId,  // ← Đổi từ Long sang String
+            @PathVariable String orderId,
             @RequestParam(required = false) String reason) {
 
         OrderResponse response = orderService.cancelOrder(orderId, reason);
+        return ResponseEntity.ok(response);
+    }
+
+    //Update priority level
+    @Operation(
+            summary = "Update order priority",
+            description = "Update the priority level of an order (1=HIGH, 2=MEDIUM, 3=LOW). " +
+                    "⚠️ Note: When setting priority for the first time (null → value) and status is PENDING, " +
+                    "the status will automatically transition to IN_PROGRESS."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Priority updated successfully. Status may auto-transition from PENDING to IN_PROGRESS if this is the first priority assignment.",
+                    content = @Content(schema = @Schema(implementation = OrderResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid priority level (must be 1-3) or same as current priority",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Order not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Cannot change priority for order status (e.g., CANCELLED, COOKING_DONE)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            )
+    })
+    @PatchMapping("/{orderId}/priority")
+    public ResponseEntity<OrderResponse> updateOrderPriority(
+            @PathVariable String orderId,
+            @Valid @RequestBody PriorityUpdateRequest request) {
+        OrderResponse response = orderService.updateOrderPriority(orderId, request);
         return ResponseEntity.ok(response);
     }
 

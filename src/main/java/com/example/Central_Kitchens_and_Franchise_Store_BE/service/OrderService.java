@@ -3,10 +3,13 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderUpdateRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.PriorityUpdateRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.util.OrderIdGenerator;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.OrderStatusValidator;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.util.PriorityLevelValidator;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 @Slf4j
 @Service
@@ -23,15 +25,19 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderStatusValidator statusValidator;
+    private final OrderIdGenerator orderIdGenerator;
+    private final PriorityLevelValidator priorityValidator;
 
 
     // 1. TẠO ORDER MỚI
     @Transactional  // Đảm bảo transaction, rollback nếu có lỗi
     public OrderResponse createOrder(OrderRequest request) {
 
+        String orderID = orderIdGenerator.generateOrderId();
+
         // Bước 1: Chuyển từ DTO Request → Entity
         Order order = Order.builder()
-                .orderId(request.getOrderId())
+                .orderId(orderID)
                 .note(request.getNote())
                 .statusOrder(OrderStatus.PENDING)
                 .storeId(request.getStoreId())
@@ -89,32 +95,80 @@ public class OrderService {
 
     @Transactional
     public OrderResponse updateOrderStatus(String orderId, OrderUpdateRequest updateRequest) {
-        log.info("Updating order {} to status {}", orderId, updateRequest.getNewStatus());
 
         // Tìm order
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
 
-        OrderStatus currentStatus = order.getStatusOrder();  // ← Sửa thành getStatusOrder()
+        OrderStatus currentStatus = order.getStatusOrder();
         OrderStatus newStatus = updateRequest.getNewStatus();
 
         // Validate transition
         statusValidator.validateTransition(currentStatus, newStatus);
 
         // Cập nhật trạng thái
-        order.setStatusOrder(newStatus);  // ← Sửa thành setStatusOrder()
-        // Note: Order entity của bạn không có updatedAt field, bỏ dòng này nếu không cần
+        order.setStatusOrder(newStatus);
 
-        // Lưu note nếu có (giả sử Order entity có trường note hoặc history)
         if (updateRequest.getNote() != null && !updateRequest.getNote().isEmpty()) {
-            // Có thể lưu vào history hoặc note field
-            // order.addStatusHistory(currentStatus, newStatus, updateRequest.getNote());
+
             log.info("Order {} status change note: {}", orderId, updateRequest.getNote());
         }
 
         Order savedOrder = orderRepository.save(order);
 
         log.info("Order {} status updated from {} to {}", orderId, currentStatus, newStatus);
+
+        return mapToResponse(savedOrder);
+    }
+
+    // 7. CẬP NHẬT PRIORITY LEVEL
+    @Transactional
+    public OrderResponse updateOrderPriority(String orderId, PriorityUpdateRequest updateRequest) {
+
+        // Bước 1: Tìm order
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
+
+        Integer currentPriority = order.getPriorityLevel();
+        Integer newPriority = updateRequest.getNewPriority();
+        OrderStatus currentStatus = order.getStatusOrder();
+
+        // Bước 2: Validate priority change
+        priorityValidator.validatePriorityChange(currentStatus, currentPriority, newPriority);
+
+        // Bước 3: Cập nhật priority
+        order.setPriorityLevel(newPriority);
+
+        // Bước 4: Tự động chuyển status từ PENDING → IN_PROGRESS (nếu là lần đầu set priority)
+        boolean autoTransitioned = false;
+        if (priorityValidator.shouldAutoTransitionToInProgress(currentStatus, currentPriority, newPriority)) {
+            order.setStatusOrder(OrderStatus.IN_PROGRESS);
+            autoTransitioned = true;
+            log.info("Auto-transitioning order {} from PENDING to IN_PROGRESS (first priority assignment)",
+                    orderId);
+        }
+
+        // Bước 5: Log lý do thay đổi nếu có
+        if (updateRequest.getNote() != null && !updateRequest.getNote().isEmpty()) {
+            log.info("Order {} priority change note: {}", orderId, updateRequest.getNote());
+        }
+
+        // Bước 6: Lưu vào database
+        Order savedOrder = orderRepository.save(order);
+
+        // Bước 7: Log kết quả
+        if (autoTransitioned) {
+            log.info("Order {} priority set to {} ({}) and status changed: {} → {}",
+                    orderId,
+                    newPriority, priorityValidator.getPriorityName(newPriority),
+                    currentStatus, OrderStatus.IN_PROGRESS);
+        } else {
+            log.info("Order {} priority updated: {} ({}) → {} ({}) - Status remains: {}",
+                    orderId,
+                    currentPriority, priorityValidator.getPriorityName(currentPriority),
+                    newPriority, priorityValidator.getPriorityName(newPriority),
+                    currentStatus);
+        }
 
         return mapToResponse(savedOrder);
     }
@@ -147,10 +201,4 @@ public class OrderService {
         return updateOrderStatus(orderId, updateRequest);
     }
 
-//    public Set<OrderStatus> getAvailableStatusTransitions(String orderId) {
-//        Order order = orderRepository.findById(orderId)
-//                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
-//
-//        return statusValidator.getAllowedTransitions(order.getStatusOrder());
-//    }
 }
