@@ -30,11 +30,8 @@ public class OrderController {
     @PostMapping
     @Operation(summary = "Create order")
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest request) {
-        // @RequestBody: Chuyển JSON từ client → OrderRequest object
         OrderResponse response = orderService.createOrder(request);
-
-        // Trả về response với status 201 CREATED
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // 2. LẤY ORDER THEO ID
