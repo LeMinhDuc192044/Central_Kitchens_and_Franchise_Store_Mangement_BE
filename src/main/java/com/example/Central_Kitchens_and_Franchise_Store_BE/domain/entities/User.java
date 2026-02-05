@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.UuidGenerator;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
@@ -25,7 +27,9 @@ import java.util.List;
 public class User implements UserDetails {
 
     @Id
-    private String id;
+    @GeneratedValue
+    @UuidGenerator
+    @Column(updatable = false, nullable = false)    private String id;
 
     @Column(name = "full_name", nullable = false)
     private String fullName;

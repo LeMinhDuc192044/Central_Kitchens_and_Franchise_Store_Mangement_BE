@@ -1,6 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.config;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.config.JwtAuthenticationFilter;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

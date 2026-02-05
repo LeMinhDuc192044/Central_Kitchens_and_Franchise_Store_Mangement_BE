@@ -19,10 +19,10 @@ import java.util.function.Function;
 @Component
 @Slf4j
 public class JwtUtils {
-    @Value("${jwt.secret}")
+    @Value("${app.jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration}")
+    @Value("${app.jwt.expiration}")
     private long jwtExpiration;
 
     @Value("${app.jwt.refresh-expiration}")
@@ -86,7 +86,7 @@ public class JwtUtils {
 
     // Extract all claims
     private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
+        return Jwts.parser()
                 .setSigningKey(getSignInKey())
                 .build()
                 .parseClaimsJws(token)
