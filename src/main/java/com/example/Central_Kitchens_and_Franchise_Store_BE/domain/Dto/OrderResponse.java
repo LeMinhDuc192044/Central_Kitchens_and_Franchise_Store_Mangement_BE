@@ -7,16 +7,19 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class OrderResponse {
+
     private String orderId;
     private Integer priorityLevel;
     private String note;
-    private LocalDate orderDate;  // Có orderDate để hiển thị
+    private LocalDate orderDate;
     private OrderStatus statusOrder;
     private String storeId;
+    private List<OrderDetailResponse> orderDetails;
 }
