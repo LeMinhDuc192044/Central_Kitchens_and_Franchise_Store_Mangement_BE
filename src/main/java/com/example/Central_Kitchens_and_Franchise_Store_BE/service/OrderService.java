@@ -208,7 +208,7 @@ public class OrderService {
     }
 
 
-    // ==================== HELPER METHODS ====================
+// ==================== HELPER METHODS ====================
 
     /**
      * Tạo OrderDetail entity từ request (chứa nhiều items)
@@ -222,6 +222,7 @@ public class OrderService {
                 .orderId(order.getOrderId())
                 .storeId(order.getStoreId())
                 .amount(BigDecimal.ZERO) // Sẽ tính sau
+                .note(request.getNote())  // ✅ THÊM NOTE Từ REQUEST
                 .build();
 
         // Tạo các OrderDetailItems và tính tổng amount
@@ -274,8 +275,8 @@ public class OrderService {
                 .orderDetails(orderDetailResponses)
                 .build();
     }
-    private OrderResponse toResponse(Order order) {
 
+    private OrderResponse toResponse(Order order) {
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .priorityLevel(order.getPriorityLevel())
@@ -297,6 +298,7 @@ public class OrderService {
         return OrderDetailResponse.builder()
                 .orderDetailId(orderDetail.getOrderDetailId())
                 .amount(orderDetail.getAmount())
+                .note(orderDetail.getNote())  // ✅ THÊM NOTE Từ ENTITY
                 .items(itemResponses)
                 .build();
     }
