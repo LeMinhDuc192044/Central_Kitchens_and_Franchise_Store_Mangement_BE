@@ -5,6 +5,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetail;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetailItem;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderDetailRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.FoodPriceUtil;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.IdGeneratorUtil;
@@ -31,6 +32,7 @@ public class OrderService {
     private final OrderStatusValidator statusValidator;
     private final OrderIdGenerator orderIdGenerator;
     private final PriorityLevelValidator priorityValidator;
+    private final OrderDetailRepository orderDetailRepository;
 
 
     // 1. TẠO ORDER MỚI (CÓ KÈM ORDER DETAILS VÀ ITEMS)
@@ -190,6 +192,19 @@ public class OrderService {
         updateRequest.setNote(reason);
 
         return updateOrderStatus(orderId, updateRequest);
+    }
+
+    // 9. LẤY ORDER DETAIL THEO ID (Cách tối ưu với repository)
+    @Transactional
+    public OrderDetailResponse getOrderDetailById(String orderDetailId) {
+        OrderDetail orderDetail = orderDetailRepository.findByOrderDetailId(orderDetailId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Order detail not found with id: " + orderDetailId));
+
+        log.info("Retrieved order detail {} with {} items",
+                orderDetailId, orderDetail.getOrderDetailItems().size());
+
+        return mapToOrderDetailResponse(orderDetail);
     }
 
 

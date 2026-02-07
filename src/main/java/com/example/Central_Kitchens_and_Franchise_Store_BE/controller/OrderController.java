@@ -1,9 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderUpdateRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.PriorityUpdateRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -134,6 +131,13 @@ public class OrderController {
             @PathVariable String orderId,
             @Valid @RequestBody PriorityUpdateRequest request) {
         OrderResponse response = orderService.updateOrderPriority(orderId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/order-details/{orderDetailId}")
+    public ResponseEntity<OrderDetailResponse> getOrderDetailById(
+            @PathVariable String orderDetailId) {
+        OrderDetailResponse response = orderService.getOrderDetailById(orderDetailId);
         return ResponseEntity.ok(response);
     }
 
