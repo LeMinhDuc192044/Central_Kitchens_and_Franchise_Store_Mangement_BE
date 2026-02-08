@@ -1,11 +1,9 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request;
 
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
 
 
 @Data

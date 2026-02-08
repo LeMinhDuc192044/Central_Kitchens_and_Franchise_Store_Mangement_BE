@@ -1,23 +1,20 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderUpdateRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.OrderRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.OrderUpdateRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.OrderStatusValidator;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 
