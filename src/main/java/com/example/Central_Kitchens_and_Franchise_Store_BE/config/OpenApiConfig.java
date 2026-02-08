@@ -29,7 +29,7 @@ import java.util.List;
         ),
         servers = {
                 @Server(
-                        url = "http://localhost:8081/api",
+                        url = "http://localhost:8081",
                         description = "Development Server"
                 ),
                 @Server(
