@@ -6,10 +6,13 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.User;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.UserRole;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RoleRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.UserRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.service.TokenService;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.utils.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
@@ -20,7 +23,9 @@ public class DataInitializer {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
+    private final TokenService tokenService;
 
     @Bean
     CommandLineRunner initTestUser() {
@@ -45,11 +50,11 @@ public class DataInitializer {
                     "manager@test.com",
                     "Manager Test User",
                     "0900000001",
-                    UserRole.ADMIN
+                    UserRole.MANAGER
             );
 
             createUserIfNotExists(
-                    "staffFrachise@test.com",
+                        "staffFrachise@test.com",
                     "Franchise staff Test User",
                     "0900000002",
                     UserRole.FRANCHISE_STAFF
@@ -63,7 +68,7 @@ public class DataInitializer {
             );
 
             createUserIfNotExists(
-                    "centralKitchenStaff@test.com",
+                    "supplyCoordinator@test.com",
                     "SUPPLY COORDINATOR",
                     "09000000321",
                     UserRole.SUPPLY_COORDINATOR
@@ -91,6 +96,8 @@ public class DataInitializer {
         Role role = roleRepository.findByName(roleName)
                 .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
 
+
+
         User user = User.builder()
                 .fullName(fullName)
                 .email(email)
@@ -102,6 +109,10 @@ public class DataInitializer {
                 .build();
 
         userRepository.save(user);
+
+        String token = jwtUtils.generateToken(user);
+        String refreshToken = jwtUtils.generateRefreshToken(user);
+        tokenService.saveUserToken(user, token, refreshToken);
     }
 }
 

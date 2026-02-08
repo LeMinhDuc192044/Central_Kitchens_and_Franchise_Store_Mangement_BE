@@ -2,10 +2,7 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.exception.handler;
 
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.ErrorResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.AuthenticationException;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.DuplicateResourceException;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.InvalidOperationException;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -73,6 +70,20 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.UNAUTHORIZED)
                 .body(ErrorResponse.<String>builder()
                         .statusCode(HttpStatus.UNAUTHORIZED.value())
+                        .error("Unauthorized")
+                        .message(ex.getMessage())
+                        .build());
+    }
+
+    @ExceptionHandler(InvalidStatusTransitionException.class)
+    public ResponseEntity<ErrorResponse<String>> handleStatusTransitionException(
+            AuthenticationException ex
+    ) {
+        log.error("Status error: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.<String>builder()
+                        .statusCode(HttpStatus.BAD_REQUEST.value())
                         .error("Unauthorized")
                         .message(ex.getMessage())
                         .build());

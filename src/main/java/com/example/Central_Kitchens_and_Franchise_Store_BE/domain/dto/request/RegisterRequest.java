@@ -27,5 +27,5 @@ public class RegisterRequest {
     private String phone;
 
     @NotBlank(message = "Must have role name")
-    private String roleName;
+    private Long idRole;
 }

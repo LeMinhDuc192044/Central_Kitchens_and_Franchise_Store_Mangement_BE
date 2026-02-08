@@ -18,7 +18,7 @@ import static lombok.AccessLevel.PRIVATE;
 @AllArgsConstructor
 @FieldDefaults(level = PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ApiResponse<T> {
+public class ApiResult<T> {
 
     int statusCode;
     String message;
@@ -27,24 +27,24 @@ public class ApiResponse<T> {
     @Builder.Default
     LocalDateTime responseAt = LocalDateTime.now();
 
-    public static <T> ApiResponse<T> success(String message, T data) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResult<T> success(String message, T data) {
+        return ApiResult.<T>builder()
                 .statusCode(200)
                 .message(message)
                 .data(data)
                 .build();
     }
 
-    public static <T> ApiResponse<T> success(T data) {
+    public static <T> ApiResult<T> success(T data) {
         return success("Success", data);
     }
 
-    public static ApiResponse<Void> success(String message) {
+    public static ApiResult<Void> success(String message) {
         return success(message, null);
     }
 
-    public static <T> ApiResponse<T> error(int statusCode, String message) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResult<T> error(int statusCode, String message) {
+        return ApiResult.<T>builder()
                 .statusCode(statusCode)
                 .message(message)
                 .build();

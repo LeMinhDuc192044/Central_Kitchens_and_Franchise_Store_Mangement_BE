@@ -1,7 +1,7 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.util;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.InvalidStatusTransitionException;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.InvalidStatusTransitionException;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;

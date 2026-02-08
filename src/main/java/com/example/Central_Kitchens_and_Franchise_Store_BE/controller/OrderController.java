@@ -3,7 +3,9 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderUpdateRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -15,8 +17,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @RestController  // Kết hợp @Controller + @ResponseBody
 @RequestMapping("/orders")  // Base URL
+@SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 public class OrderController {
 
@@ -24,12 +28,10 @@ public class OrderController {
 
     // 1. TẠO ORDER - POST /api/orders
     @PostMapping
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Create order")
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest request) {
-        // @RequestBody: Chuyển JSON từ client → OrderRequest object
         OrderResponse response = orderService.createOrder(request);
-
-        // Trả về response với status 201 CREATED
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
@@ -45,6 +47,7 @@ public class OrderController {
 
     // 3. LẤY TẤT CẢ ORDERS - GET /api/orders
     @GetMapping
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get all orders")
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
         List<OrderResponse> orders = orderService.getAllOrders();
@@ -53,6 +56,7 @@ public class OrderController {
 
     // 4. LẤY ORDERS THEO STORE - GET /api/orders/store/{storeId}
     @GetMapping("/orders/{storeId}")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get order by store id")
     public ResponseEntity<List<OrderResponse>> getOrdersByStore(@PathVariable String storeId) {
         List<OrderResponse> orders = orderService.getOrdersByStoreId(storeId);
@@ -71,6 +75,7 @@ public class OrderController {
 
     // 6. XÓA ORDER - DELETE /api/orders/{orderId}
     @DeleteMapping("/{orderId}")
+    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
     @Operation(summary = "Delete order")
     public ResponseEntity<Void> deleteOrder(@PathVariable String orderId) {
         orderService.deleteOrder(orderId);
@@ -80,6 +85,7 @@ public class OrderController {
 
     //Cập nhật trạng thái đơn hàng
     @PutMapping("/{orderId}/status")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Update order status", description = "Update the status of an order with validation")
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable String orderId,  // ← Đổi từ Long sang String
@@ -91,6 +97,7 @@ public class OrderController {
 
     //Hủy đơn hàng
     @PostMapping("/{orderId}/cancel")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Cancel order", description = "Cancel an order with reason")
     public ResponseEntity<OrderResponse> cancelOrder(
             @PathVariable String orderId,  // ← Đổi từ Long sang String

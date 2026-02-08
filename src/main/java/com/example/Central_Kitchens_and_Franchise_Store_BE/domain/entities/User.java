@@ -1,11 +1,10 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 import org.springframework.security.core.GrantedAuthority;
@@ -20,7 +19,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "users")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,7 +29,8 @@ public class User implements UserDetails {
     @Id
     @GeneratedValue
     @UuidGenerator
-    @Column(updatable = false, nullable = false)    private String id;
+    @Column(updatable = false, nullable = false)
+    private String id;
 
     @Column(name = "full_name", nullable = false)
     private String fullName;
@@ -46,6 +47,10 @@ public class User implements UserDetails {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @Builder.Default
+    private List<Token> token = new ArrayList<>();
 
     @Column(nullable = false)
     @Builder.Default

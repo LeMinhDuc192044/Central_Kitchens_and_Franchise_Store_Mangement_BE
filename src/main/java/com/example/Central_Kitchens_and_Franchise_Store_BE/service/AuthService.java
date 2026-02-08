@@ -4,15 +4,19 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.Au
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.AuthRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.RegisterRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Role;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Token;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.User;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.TokenType;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.UserRole;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.AuthenticationException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RoleRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.TokenRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.UserRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.utils.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -31,6 +35,7 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
+    private final TokenService tokenService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -42,9 +47,13 @@ public class AuthService {
         }
 
         // Get role from database
-        UserRole userRole = UserRole.valueOf(request.getRoleName());
-        Role role = roleRepository.findByName(userRole)
-                .orElseThrow(() -> new RuntimeException("Role not found: " + request.getRoleName()));
+        Role role = roleRepository.findById(request.getIdRole())
+                .orElseThrow(() -> new RuntimeException("Role not found " + request.getIdRole()));
+
+//        UserRole userRole = UserRole.valueOf(request.getRoleName());
+//        Role role = roleRepository.findByName(userRole)
+//                .orElseThrow(() -> new RuntimeException("Role not found: " + request.getRoleName()));
+
 
         // Create new user
         User user = User.builder()
@@ -55,12 +64,14 @@ public class AuthService {
                 .role(role)
                 .active(true)
                 .build();
-
         userRepository.save(user);
 
-        // Generate JWT token
+
         String jwtToken = jwtUtils.generateToken(user);
         String refreshToken = jwtUtils.generateRefreshToken(user);
+
+        tokenService.revokeAllUserTokens(user);
+        tokenService.saveUserToken(user, jwtToken, refreshToken);
 
         return AuthResponse.builder()
                 .token(jwtToken)
@@ -98,6 +109,9 @@ public class AuthService {
         String token = jwtUtils.generateToken(userDetails);
         String refreshToken = jwtUtils.generateRefreshToken(userDetails);
 
+        tokenService.revokeAllUserTokens(user);
+        tokenService.saveUserToken(user, token, refreshToken);
+
         log.info("User logged in successfully: {}", request.getEmail());
 
         return AuthResponse.builder()
@@ -132,6 +146,19 @@ public class AuthService {
                 .role(user.getRole().getName().name())
                 .userId(user.getId())
                 .build();
+    }
+
+    @Transactional
+    public void logout(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        tokenService.revokeAllUserTokens(user);
+    }
+
+    @Transactional
+    public void logoutFromDevice(String token) {
+        tokenService.revokeToken(token);
     }
 
 }

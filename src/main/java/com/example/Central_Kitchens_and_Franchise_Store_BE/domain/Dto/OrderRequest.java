@@ -15,5 +15,4 @@ public class OrderRequest {
     private String orderId;
     private String note;
     private String storeId;
-
 }
