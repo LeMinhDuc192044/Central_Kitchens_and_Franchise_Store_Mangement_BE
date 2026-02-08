@@ -1,4 +1,4 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.response;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import lombok.AllArgsConstructor;
