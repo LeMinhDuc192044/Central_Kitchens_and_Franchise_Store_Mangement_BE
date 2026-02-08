@@ -139,10 +139,37 @@ public class OrderController {
     }
 
     @GetMapping("/order-details/{orderDetailId}")
+    @Operation(
+            summary = "Get all order detail items by order detail ID"
+    )
     public ResponseEntity<OrderDetailResponse> getOrderDetailById(
             @PathVariable String orderDetailId) {
         OrderDetailResponse response = orderService.getOrderDetailById(orderDetailId);
         return ResponseEntity.ok(response);
+    }
+
+    //  LẤY TẤT CẢ ORDER DETAILS THEO ORDER ID
+    @GetMapping("/{orderId}/order-details")
+    @Operation(
+            summary = "Get all order details by order ID",
+            description = "Retrieve all order details for a specific order. Example: GET /orders/ORD013/order-details"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Successfully retrieved order details",
+                    content = @Content(schema = @Schema(implementation = OrderDetailResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Order not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            )
+    })
+    public ResponseEntity<List<OrderDetailResponse>> getAllOrderDetailsByOrderId(
+            @PathVariable String orderId) {
+        List<OrderDetailResponse> responses = orderService.getAllOrderDetailsByOrderId(orderId);
+        return ResponseEntity.ok(responses);
     }
 
 }

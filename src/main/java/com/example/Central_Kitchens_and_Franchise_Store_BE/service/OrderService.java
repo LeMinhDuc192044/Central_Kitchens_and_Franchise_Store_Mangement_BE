@@ -210,6 +210,26 @@ public class OrderService {
         return mapToOrderDetailResponse(orderDetail);
     }
 
+    // 10. LẤY TẤT CẢ ORDER DETAILS THEO ORDER ID
+    @Transactional
+    public List<OrderDetailResponse> getAllOrderDetailsByOrderId(String orderId) {
+        // Kiểm tra order có tồn tại không
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Order not found with id: " + orderId));
+
+        // Lấy tất cả OrderDetails của order này
+        List<OrderDetail> orderDetails = order.getOrderDetails();
+
+        log.info("Retrieved {} order detail(s) for order {}",
+                orderDetails.size(), orderId);
+
+        // Chuyển đổi sang Response DTO
+        return orderDetails.stream()
+                .map(this::mapToOrderDetailResponse)
+                .collect(Collectors.toList());
+    }
+
 
 // ==================== HELPER METHODS ====================
 
@@ -315,7 +335,7 @@ public class OrderService {
                 .quantity(item.getQuantity())
                 .unitPrice(item.getUnitPrice())
                 .totalAmount(item.getTotalAmount())
-                .orderDetailId(item.getOrderDetailId())
+//                .orderDetailId(item.getOrderDetailId())
                 .build();
     }
 }
