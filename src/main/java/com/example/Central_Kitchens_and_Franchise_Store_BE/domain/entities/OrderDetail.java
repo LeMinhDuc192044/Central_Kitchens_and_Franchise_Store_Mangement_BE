@@ -30,9 +30,6 @@ public class OrderDetail {
     @Column(name = "supply_coordinator_id_fk")
     private String supplyCoordinatorId;
 
-    @Column(name = "note", columnDefinition = "TEXT")
-    private String note;
-
     @Column(name = "store_id_fk")
     private String storeId;
 
