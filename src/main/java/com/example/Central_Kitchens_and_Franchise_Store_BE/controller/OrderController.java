@@ -1,46 +1,49 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.*;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.OrderUpdateRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
+import java.util.Set;
 
-
-@RestController
-@RequestMapping("/orders")
+@RestController  // Kết hợp @Controller + @ResponseBody
+@RequestMapping("/orders")  // Base URL
 @RequiredArgsConstructor
 public class OrderController {
 
     private final OrderService orderService;
 
-    // 1. TẠO ORDER
+    // 1. TẠO ORDER - POST /api/orders
     @PostMapping
     @Operation(summary = "Create order")
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest request) {
+        // @RequestBody: Chuyển JSON từ client → OrderRequest object
         OrderResponse response = orderService.createOrder(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        // Trả về response với status 201 CREATED
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-    // 2. LẤY ORDER THEO ID
+    // 2. LẤY ORDER THEO ID - GET /api/orders/{orderId}
     @GetMapping("/{orderId}")
-    @Operation(summary = "Get order by order id")
+    @Operation(summary = "Get order by id")
     public ResponseEntity<OrderResponse> getOrderById(@PathVariable String orderId) {
-
+        // @PathVariable: Lấy giá trị từ URL
+        // Ví dụ: /api/orders/ORD001 → orderId = "ORD001"
         OrderResponse response = orderService.getOrderById(orderId);
         return ResponseEntity.ok(response);  // Status 200 OK
     }
 
-    // 3. LẤY TẤT CẢ ORDERS
+    // 3. LẤY TẤT CẢ ORDERS - GET /api/orders
     @GetMapping
     @Operation(summary = "Get all orders")
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
@@ -48,7 +51,7 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-    // 4. LẤY ORDERS THEO STORE ID
+    // 4. LẤY ORDERS THEO STORE - GET /api/orders/store/{storeId}
     @GetMapping("/orders/{storeId}")
     @Operation(summary = "Get order by store id")
     public ResponseEntity<List<OrderResponse>> getOrdersByStore(@PathVariable String storeId) {
@@ -56,15 +59,15 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-//    // 5. CẬP NHẬT ORDER
-//    @PutMapping("/{orderId}")
-//    @Operation(summary = "Update order")
-//    public ResponseEntity<OrderResponse> updateOrder(@Valid
-//            @PathVariable String orderId,
-//            @RequestBody OrderRequest request) {
-//        OrderResponse response = orderService.updateOrder(orderId, request);
-//        return ResponseEntity.ok(response);
-//    }
+    // 5. CẬP NHẬT ORDER - PUT /api/orders/{orderId}
+    @PutMapping("/{orderId}")
+    @Operation(summary = "Update order")
+    public ResponseEntity<OrderResponse> updateOrder(@Valid
+            @PathVariable String orderId,
+            @RequestBody OrderRequest request) {
+        OrderResponse response = orderService.updateOrder(orderId, request);
+        return ResponseEntity.ok(response);
+    }
 
     // 6. XÓA ORDER - DELETE /api/orders/{orderId}
     @DeleteMapping("/{orderId}")
@@ -75,70 +78,35 @@ public class OrderController {
     }
 
 
-    //7. Update order's status
+    //Cập nhật trạng thái đơn hàng
     @PutMapping("/{orderId}/status")
     @Operation(summary = "Update order status", description = "Update the status of an order with validation")
     public ResponseEntity<OrderResponse> updateOrderStatus(
-            @PathVariable String orderId,
+            @PathVariable String orderId,  // ← Đổi từ Long sang String
             @Valid @RequestBody OrderUpdateRequest updateRequest) {
 
         OrderResponse response = orderService.updateOrderStatus(orderId, updateRequest);
         return ResponseEntity.ok(response);
     }
 
-    //8. Cancel order
+    //Hủy đơn hàng
     @PostMapping("/{orderId}/cancel")
     @Operation(summary = "Cancel order", description = "Cancel an order with reason")
     public ResponseEntity<OrderResponse> cancelOrder(
-            @PathVariable String orderId,
+            @PathVariable String orderId,  // ← Đổi từ Long sang String
             @RequestParam(required = false) String reason) {
 
         OrderResponse response = orderService.cancelOrder(orderId, reason);
         return ResponseEntity.ok(response);
     }
 
-    //9. Update priority level
-    @Operation(
-            summary = "Update order priority",
-            description = "Update the priority level of an order (1=HIGH, 2=MEDIUM, 3=LOW). " +
-                    "⚠️ Note: When setting priority for the first time (null → value) and status is PENDING, " +
-                    "the status will automatically transition to IN_PROGRESS."
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Priority updated successfully. Status may auto-transition from PENDING to IN_PROGRESS if this is the first priority assignment.",
-                    content = @Content(schema = @Schema(implementation = OrderResponse.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid priority level (must be 1-3) or same as current priority",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Order not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            ),
-            @ApiResponse(
-                    responseCode = "409",
-                    description = "Cannot change priority for order status (e.g., CANCELLED, COOKING_DONE)",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
-    @PatchMapping("/{orderId}/priority")
-    public ResponseEntity<OrderResponse> updateOrderPriority(
-            @PathVariable String orderId,
-            @Valid @RequestBody PriorityUpdateRequest request) {
-        OrderResponse response = orderService.updateOrderPriority(orderId, request);
-        return ResponseEntity.ok(response);
-    }
 
-    @GetMapping("/order-details/{orderDetailId}")
-    public ResponseEntity<OrderDetailResponse> getOrderDetailById(
-            @PathVariable String orderDetailId) {
-        OrderDetailResponse response = orderService.getOrderDetailById(orderDetailId);
-        return ResponseEntity.ok(response);
-    }
-
+//    //Xem các luồng đi hợp lệ của status
+//    @GetMapping("/{orderId}/available-transitions")
+//    @Operation(summary = "Get available status transitions",
+//            description = "Get list of statuses that the order can transition to")
+//    public ResponseEntity<Set<OrderStatus>> getAvailableTransitions(@PathVariable String orderId) {
+//        Set<OrderStatus> transitions = orderService.getAvailableStatusTransitions(orderId);
+//        return ResponseEntity.ok(transitions);
+//    }
 }

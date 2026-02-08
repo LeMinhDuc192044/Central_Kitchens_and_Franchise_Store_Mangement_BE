@@ -7,9 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -40,10 +38,6 @@ public class OrderDetail {
     @JoinColumn(name = "order_id_fk", referencedColumnName = "order_id", insertable = false, updatable = false)
     private Order order;
 
-    @OneToMany(mappedBy = "orderDetail", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<OrderDetailItem> orderDetailItems = new ArrayList<>();
-
     @OneToOne(mappedBy = "orderDetail", cascade = CascadeType.ALL)
     private Shipment shipment;
 
@@ -53,17 +47,4 @@ public class OrderDetail {
 
     @OneToOne(mappedBy = "orderDetail", cascade = CascadeType.ALL)
     private OrderInvoice orderInvoice;
-
-    // Helper method để thêm OrderDetailItem
-    public void addOrderDetailItem(OrderDetailItem item) {
-        orderDetailItems.add(item);
-        item.setOrderDetail(this);
-        item.setOrderDetailId(this.orderDetailId);
-    }
-
-    // Helper method để remove OrderDetailItem
-    public void removeOrderDetailItem(OrderDetailItem item) {
-        orderDetailItems.remove(item);
-        item.setOrderDetail(null);
-    }
 }

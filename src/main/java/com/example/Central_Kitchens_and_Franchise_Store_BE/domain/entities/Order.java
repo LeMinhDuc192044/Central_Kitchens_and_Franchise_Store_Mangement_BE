@@ -49,21 +49,7 @@ public class Order {
     @JoinColumn(name = "store_id_fk", referencedColumnName = "store_id", insertable = false, updatable = false)
     private FranchiseStore franchiseStore;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "orderDetailId", cascade = CascadeType.ALL)
     @Builder.Default
     private List<OrderDetail> orderDetails = new ArrayList<>();
-
-    // Helper method để thêm OrderDetail
-    public void addOrderDetail(OrderDetail orderDetail) {
-        orderDetails.add(orderDetail);
-        orderDetail.setOrder(this);
-        orderDetail.setOrderId(this.orderId);
-        orderDetail.setStoreId(this.storeId);
-    }
-
-    // Helper method để remove OrderDetail
-    public void removeOrderDetail(OrderDetail orderDetail) {
-        orderDetails.remove(orderDetail);
-        orderDetail.setOrder(null);
-    }
 }
