@@ -229,6 +229,58 @@ public class OrderService {
                 .map(this::mapToOrderDetailResponse)
                 .collect(Collectors.toList());
     }
+    // 11. UPDATE ORDER DETAIL BY ORDER DETAIL ID (Replace toàn bộ items)
+    @Transactional
+    public OrderDetailResponse updateOrderDetail(String orderDetailId, OrderDetailUpdateRequest request) {
+
+        // Bước 1: Tìm OrderDetail
+        OrderDetail orderDetail = orderDetailRepository.findByOrderDetailId(orderDetailId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Order detail not found with id: " + orderDetailId));
+
+        // Bước 2: Kiểm tra trạng thái Order
+        Order order = orderRepository.findById(orderDetail.getOrderId())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Order not found with id: " + orderDetail.getOrderId()));
+
+        if (!canUpdateOrderDetail(order.getStatusOrder())) {
+            throw new IllegalStateException(
+                    "Cannot update order detail. Order status is: " + order.getStatusOrder());
+        }
+
+        // Bước 3: Update note nếu có
+        if (request.getNote() != null) {
+            orderDetail.setNote(request.getNote());
+        }
+
+        // Bước 4: Xóa tất cả items cũ
+        orderDetail.getOrderDetailItems().clear();
+
+        // Bước 5: Thêm items mới và tính lại tổng tiền
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (OrderDetailItemRequest itemRequest : request.getItems()) {
+            OrderDetailItem item = buildOrderDetailItem(orderDetail, itemRequest);
+            orderDetail.addOrderDetailItem(item);
+            totalAmount = totalAmount.add(item.getTotalAmount());
+        }
+
+        // Bước 6: Cập nhật lại amount
+        orderDetail.setAmount(totalAmount);
+
+        // Bước 7: Lưu vào database
+        OrderDetail savedOrderDetail = orderDetailRepository.save(orderDetail);
+
+        log.info("Updated order detail {} - New amount: {}, Total items: {}",
+                orderDetailId, totalAmount, request.getItems().size());
+
+        return mapToOrderDetailResponse(savedOrderDetail);
+    }
+
+    // Helper method: Kiểm tra xem có thể update OrderDetail không
+    private boolean canUpdateOrderDetail(OrderStatus status) {
+        return status == OrderStatus.PENDING ||
+                status == OrderStatus.IN_PROGRESS;
+    }
 
 
 // ==================== HELPER METHODS ====================

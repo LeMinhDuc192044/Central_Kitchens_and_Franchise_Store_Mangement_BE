@@ -1,8 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.OrderRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.OrderUpdateRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.PriorityUpdateRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.response.OrderDetailResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.response.OrderResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
@@ -171,5 +169,36 @@ public class OrderController {
         List<OrderDetailResponse> responses = orderService.getAllOrderDetailsByOrderId(orderId);
         return ResponseEntity.ok(responses);
     }
+
+    // 11. UPDATE ORDER DETAIL BY ORDER DETAIL ID
+    @PutMapping("/order-details/{orderDetailId}")
+    @Operation(
+            summary = "Update order detail by order detail ID",
+            description = "Update order detail including note and items list. This will replace all existing items. Only allowed for PENDING or IN_PROGRESS orders."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Order detail updated successfully",
+                    content = @Content(schema = @Schema(implementation = OrderDetailResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Order detail not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request or order status doesn't allow update",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            )
+    })
+    public ResponseEntity<OrderDetailResponse> updateOrderDetail(
+            @PathVariable String orderDetailId,
+            @Valid @RequestBody OrderDetailUpdateRequest request) {
+        OrderDetailResponse response = orderService.updateOrderDetail(orderDetailId, request);
+        return ResponseEntity.ok(response);
+    }
+
 
 }
