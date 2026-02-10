@@ -1,4 +1,4 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.response;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

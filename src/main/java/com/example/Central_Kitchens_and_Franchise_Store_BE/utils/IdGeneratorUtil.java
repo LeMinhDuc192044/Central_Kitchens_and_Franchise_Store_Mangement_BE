@@ -1,4 +1,4 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.util;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.utils;
 
 import java.time.LocalDate;
 import java.util.UUID;
