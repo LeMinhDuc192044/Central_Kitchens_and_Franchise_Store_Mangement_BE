@@ -1,4 +1,4 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.DTO.request;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

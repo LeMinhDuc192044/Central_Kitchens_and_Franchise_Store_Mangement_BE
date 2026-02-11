@@ -1,8 +1,8 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.DTO.request.*;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.DTO.reponse.OrderDetailResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.DTO.reponse.OrderResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.*;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
