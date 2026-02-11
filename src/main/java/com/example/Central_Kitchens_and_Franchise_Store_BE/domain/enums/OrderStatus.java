@@ -6,5 +6,4 @@ public enum OrderStatus {
     CANCELLED,
     COOKING_DONE,
     WAITING_FOR_UPDATE
-
 }

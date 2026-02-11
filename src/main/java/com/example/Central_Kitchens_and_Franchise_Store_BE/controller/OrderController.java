@@ -9,10 +9,13 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -20,6 +23,8 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/orders")
+@Slf4j
+@SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 public class OrderController {
 
@@ -27,6 +32,7 @@ public class OrderController {
 
     // 1. TẠO ORDER
     @PostMapping
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Create order")
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest request) {
         OrderResponse response = orderService.createOrder(request);
@@ -44,6 +50,7 @@ public class OrderController {
 
     // 3. LẤY TẤT CẢ ORDERS
     @GetMapping
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get all orders")
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
         List<OrderResponse> orders = orderService.getAllOrders();
@@ -52,6 +59,7 @@ public class OrderController {
 
     // 4. LẤY ORDERS THEO STORE ID
     @GetMapping("/orders/{storeId}")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get order by store id")
     public ResponseEntity<List<OrderResponse>> getOrdersByStore(@PathVariable String storeId) {
         List<OrderResponse> orders = orderService.getOrdersByStoreId(storeId);
@@ -70,6 +78,7 @@ public class OrderController {
 
     // 6. XÓA ORDER - DELETE /api/orders/{orderId}
     @DeleteMapping("/{orderId}")
+    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
     @Operation(summary = "Delete order")
     public ResponseEntity<Void> deleteOrder(@PathVariable String orderId) {
         orderService.deleteOrder(orderId);
@@ -79,6 +88,7 @@ public class OrderController {
 
     //7. Update order's status
     @PutMapping("/{orderId}/status")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Update order status", description = "Update the status of an order with validation")
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable String orderId,
@@ -90,6 +100,7 @@ public class OrderController {
 
     //8. Cancel order
     @PostMapping("/{orderId}/cancel")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Cancel order", description = "Cancel an order with reason")
     public ResponseEntity<OrderResponse> cancelOrder(
             @PathVariable String orderId,

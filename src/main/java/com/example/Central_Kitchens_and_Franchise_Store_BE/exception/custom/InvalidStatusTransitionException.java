@@ -1,4 +1,4 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.exception;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom;
 
 public class InvalidStatusTransitionException extends RuntimeException {
 

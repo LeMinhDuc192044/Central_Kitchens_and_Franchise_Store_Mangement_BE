@@ -1,35 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.0</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <!-- ✅ USE LATEST STABLE VERSION -->
+        <version>3.2.2</version>
+        <relativePath/>
     </parent>
+
     <groupId>com.example</groupId>
     <artifactId>Central_Kitchens_and_Franchise_Store_BE</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>Central_Kitchens_and_Franchise_Store_BE</name>
-    <description>Demo project for Spring Boot</description>
-    <url/>
-    <licenses>
-        <license/>
-    </licenses>
-    <developers>
-        <developer/>
-    </developers>
-    <scm>
-        <connection/>
-        <developerConnection/>
-        <tag/>
-        <url/>
-    </scm>
+    <name>Central Kitchens and Franchise Store Backend</name>
+    <description>Restaurant ordering and franchise management system</description>
+
     <properties>
         <java.version>21</java.version>
+        <!-- ✅ Ensure Spring version -->
+        <spring-boot.version>3.2.2</spring-boot.version>
     </properties>
+
     <dependencies>
+        <!-- ============================================ -->
+        <!-- Spring Boot Starters                         -->
+        <!-- ============================================ -->
+
+        <!-- Spring Boot Starter Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <!-- ❌ DO NOT specify version - inherit from parent -->
+        </dependency>
+
+        <!-- Spring Boot Starter Security -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Starter Data JPA -->
         <!-- ============================================ -->
         <!-- Spring Boot Starters                         -->
         <!-- ============================================ -->
@@ -151,5 +165,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

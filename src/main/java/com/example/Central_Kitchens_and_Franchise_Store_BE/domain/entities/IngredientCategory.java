@@ -8,7 +8,8 @@ import java.util.Set;
 
 @Entity
 @Table(name = "ingredient_category")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
