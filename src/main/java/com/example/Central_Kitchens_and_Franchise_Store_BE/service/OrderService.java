@@ -281,6 +281,55 @@ public class OrderService {
         return status == OrderStatus.PENDING ||
                 status == OrderStatus.IN_PROGRESS;
     }
+    // 12. LẤY TẤT CẢ ORDERS CÓ STATUS = PENDING THEO STORE ID
+    public List<OrderResponse> getAllOrdersWithPendingStatusByStoreId(String storeId) {
+        List<Order> pendingOrders = orderRepository.findByStoreIdAndStatusOrder(storeId, OrderStatus.PENDING);
+
+        log.info("Retrieved {} pending order(s) for store {}", pendingOrders.size(), storeId);
+
+        return pendingOrders.stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    // 13. LẤY TẤT CẢ ORDERS CÓ STATUS = PENDING (KHÔNG CẦN THAM SỐ)
+    public List<OrderResponse> getAllOrdersWithPendingStatus() {
+        List<Order> pendingOrders = orderRepository.findByStatusOrder(OrderStatus.PENDING);
+
+        log.info("Retrieved {} pending order(s)", pendingOrders.size());
+
+        return pendingOrders.stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    // 14. XÁC NHẬN ORDER (PENDING → IN_PROGRESS)
+    @Transactional
+    public OrderResponse confirmOrder(String orderId) {
+        // Bước 1: Tìm order
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
+
+        OrderStatus currentStatus = order.getStatusOrder();
+
+        // Bước 2: Validate - chỉ cho phép confirm khi status = PENDING
+        if (currentStatus != OrderStatus.PENDING) {
+            throw new IllegalStateException(
+                    "Cannot confirm order. Current status is: " + currentStatus +
+                            ". Only PENDING orders can be confirmed.");
+        }
+
+        // Bước 3: Chuyển status sang IN_PROGRESS
+        order.setStatusOrder(OrderStatus.IN_PROGRESS);
+
+        // Bước 4: Lưu vào database
+        Order savedOrder = orderRepository.save(order);
+
+        log.info("Order {} confirmed: status changed from PENDING to IN_PROGRESS", orderId);
+
+        // Bước 5: Trả về response
+        return toResponse(savedOrder);
+    }
 
 
 // ==================== HELPER METHODS ====================

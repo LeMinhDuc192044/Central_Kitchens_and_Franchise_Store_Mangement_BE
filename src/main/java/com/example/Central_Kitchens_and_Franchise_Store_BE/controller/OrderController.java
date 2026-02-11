@@ -199,6 +199,68 @@ public class OrderController {
         OrderDetailResponse response = orderService.updateOrderDetail(orderDetailId, request);
         return ResponseEntity.ok(response);
     }
+    // 12. LẤY ORDERS CÓ STATUS = PENDING THEO STORE ID
+    @GetMapping("/store/{storeId}/pending")
+    @Operation(
+            summary = "Get all pending orders by store ID",
+            description = "Retrieve all orders with PENDING status for a specific store"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Successfully retrieved pending orders",
+                    content = @Content(schema = @Schema(implementation = OrderResponse.class))
+            )
+    })
+    public ResponseEntity<List<OrderResponse>> getPendingOrdersByStore(@PathVariable String storeId) {
+        List<OrderResponse> orders = orderService.getAllOrdersWithPendingStatusByStoreId(storeId);
+        return ResponseEntity.ok(orders);
+    }
 
+    // 13. LẤY TẤT CẢ ORDERS CÓ STATUS = PENDING
+    @GetMapping("/pending")
+    @Operation(
+            summary = "Get all pending orders",
+            description = "Retrieve all orders with PENDING status across all stores"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Successfully retrieved all pending orders",
+                    content = @Content(schema = @Schema(implementation = OrderResponse.class))
+            )
+    })
+    public ResponseEntity<List<OrderResponse>> getAllPendingOrders() {
+        List<OrderResponse> orders = orderService.getAllOrdersWithPendingStatus();
+        return ResponseEntity.ok(orders);
+    }
+
+    // 14. XÁC NHẬN ORDER
+    @PostMapping("/{orderId}/confirm")
+    @Operation(
+            summary = "Confirm order",
+            description = "Confirm a PENDING order and change status to IN_PROGRESS"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Order confirmed successfully, status changed to IN_PROGRESS",
+                    content = @Content(schema = @Schema(implementation = OrderResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Order not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Order is not in PENDING status",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            )
+    })
+    public ResponseEntity<OrderResponse> confirmOrder(@PathVariable String orderId) {
+        OrderResponse response = orderService.confirmOrder(orderId);
+        return ResponseEntity.ok(response);
+    }
 
 }
