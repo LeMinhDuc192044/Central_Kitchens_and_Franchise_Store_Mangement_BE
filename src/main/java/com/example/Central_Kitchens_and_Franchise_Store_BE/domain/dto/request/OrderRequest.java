@@ -21,5 +21,5 @@ public class OrderRequest {
 
     @NotEmpty(message = "Order must have at least one item")
     @Valid
-    private List<OrderDetailRequest> orderDetails;
+    private List<com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.OrderDetailRequest> orderDetails;
 }
