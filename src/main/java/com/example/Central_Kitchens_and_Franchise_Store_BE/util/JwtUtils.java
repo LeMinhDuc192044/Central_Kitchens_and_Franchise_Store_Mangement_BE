@@ -1,4 +1,4 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.utils;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.util;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

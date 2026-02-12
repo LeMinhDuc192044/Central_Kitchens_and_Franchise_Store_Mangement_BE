@@ -2,7 +2,7 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.config;
 
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.TokenService;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.utils.JwtUtils;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.util.JwtUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
