@@ -7,12 +7,11 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.UserRole
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RoleRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.UserRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.TokenService;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.utils.JwtUtils;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;

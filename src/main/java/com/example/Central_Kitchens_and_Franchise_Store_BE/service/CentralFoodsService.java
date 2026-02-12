@@ -11,7 +11,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.CentralFoodsMa
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodCategoryRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RecipeRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.utils.RandomGeneratorUtil;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.util.RandomGeneratorUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
