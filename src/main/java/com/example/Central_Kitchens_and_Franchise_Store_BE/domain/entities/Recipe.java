@@ -1,8 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.PastOrPresent;
-import jakarta.validation.constraints.Positive;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -26,11 +24,9 @@ public class Recipe {
     private Integer cookingTime;
 
     @Column(name = "cooking_temperature")
-    @Positive
     private Double cookingTemperature;
 
     @Column(name = "published_date")
-    @PastOrPresent
     private LocalDate publishedDate;
 
     @Column(name = "version")

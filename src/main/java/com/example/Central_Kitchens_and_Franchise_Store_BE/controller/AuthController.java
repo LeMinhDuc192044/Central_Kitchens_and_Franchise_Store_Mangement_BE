@@ -33,7 +33,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/create")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     @Operation(summary = "Create new user", description = "create a new customer account")
     public ResponseEntity<ApiResult<AuthResponse>> register(
             @Valid @RequestBody RegisterRequest request
