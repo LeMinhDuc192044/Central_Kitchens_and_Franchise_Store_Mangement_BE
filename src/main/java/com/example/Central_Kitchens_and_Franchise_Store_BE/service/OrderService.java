@@ -51,8 +51,8 @@ public class OrderService {
         // Bước 1: Chuyển từ DTO Request → Entity
         Order order = Order.builder()
                 .orderId(orderId)
-                .note(request.getNote())
                 .statusOrder(OrderStatus.PENDING)
+                .paymentOption(request.getPaymentOption())
                 .storeId(request.getStoreId())
                 .orderDate(LocalDate.now())
                 .build();
@@ -395,11 +395,10 @@ public class OrderService {
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .priorityLevel(order.getPriorityLevel())
-                .note(order.getNote())
                 .orderDate(order.getOrderDate())
+                .paymentOption(order.getPaymentOption())
                 .statusOrder(order.getStatusOrder())
                 .storeId(order.getStoreId())
-                .orderDetails(orderDetailResponses)
                 .build();
     }
 
@@ -407,7 +406,7 @@ public class OrderService {
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .priorityLevel(order.getPriorityLevel())
-                .note(order.getNote())
+                .paymentOption(order.getPaymentOption())
                 .orderDate(order.getOrderDate())
                 .statusOrder(order.getStatusOrder())
                 .storeId(order.getStoreId())

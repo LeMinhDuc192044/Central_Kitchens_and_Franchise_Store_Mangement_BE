@@ -41,6 +41,7 @@ public class OrderController {
 
     // 2. LẤY ORDER THEO ID
     @GetMapping("/{orderId}")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'SUPPLY_COORDINATOR', 'CENTRAL_KITCHEN_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get order by order id")
     public ResponseEntity<OrderResponse> getOrderById(@PathVariable String orderId) {
 
@@ -50,7 +51,7 @@ public class OrderController {
 
     // 3. LẤY TẤT CẢ ORDERS
     @GetMapping
-    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get all orders")
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
         List<OrderResponse> orders = orderService.getAllOrders();
@@ -59,14 +60,14 @@ public class OrderController {
 
     // 4. LẤY ORDERS THEO STORE ID
     @GetMapping("/orders/{storeId}")
-    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF','SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get order by store id")
     public ResponseEntity<List<OrderResponse>> getOrdersByStore(@PathVariable String storeId) {
         List<OrderResponse> orders = orderService.getOrdersByStoreId(storeId);
         return ResponseEntity.ok(orders);
     }
 
-//    // 5. CẬP NHẬT ORDER
+//    //  CẬP NHẬT ORDER
 //    @PutMapping("/{orderId}")
 //    @Operation(summary = "Update order")
 //    public ResponseEntity<OrderResponse> updateOrder(@Valid
@@ -76,19 +77,19 @@ public class OrderController {
 //        return ResponseEntity.ok(response);
 //    }
 
-    // 6. XÓA ORDER - DELETE /api/orders/{orderId}
-    @DeleteMapping("/{orderId}")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
-    @Operation(summary = "Delete order")
-    public ResponseEntity<Void> deleteOrder(@PathVariable String orderId) {
-        orderService.deleteOrder(orderId);
-        return ResponseEntity.noContent().build();  // Status 204 NO CONTENT
-    }
+//    //  XÓA ORDER - DELETE /api/orders/{orderId}
+//    @DeleteMapping("/{orderId}")
+//    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+//    @Operation(summary = "Delete order")
+//    public ResponseEntity<Void> deleteOrder(@PathVariable String orderId) {
+//        orderService.deleteOrder(orderId);
+//        return ResponseEntity.noContent().build();  // Status 204 NO CONTENT
+//    }
 
 
-    //7. Update order's status
+    //5. Update order's status
     @PutMapping("/{orderId}/status")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR','CENTRAL_KITCHEN_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Update order status", description = "Update the status of an order with validation")
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable String orderId,
@@ -98,9 +99,9 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    //8. Cancel order
+    //6. Cancel order
     @PostMapping("/{orderId}/cancel")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR','CENTRAL_KITCHEN_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Cancel order", description = "Cancel an order with reason")
     public ResponseEntity<OrderResponse> cancelOrder(
             @PathVariable String orderId,
@@ -110,7 +111,8 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    //9. Update priority level
+    //7. Update priority level
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(
             summary = "Update order priority",
             description = "Update the priority level of an order (1=HIGH, 2=MEDIUM, 3=LOW). " +
@@ -147,6 +149,7 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
+    //8. GET ORDER DETAIL Item BY OrderDetailID
     @GetMapping("/order-details/{orderDetailId}")
     @Operation(
             summary = "Get all order detail items by order detail ID"
@@ -157,7 +160,7 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    //  LẤY TẤT CẢ ORDER DETAILS THEO ORDER ID
+    // 9. GET ALL ORDER DETAILS BY ORDER ID
     @GetMapping("/{orderId}/order-details")
     @Operation(
             summary = "Get all order details by order ID",
@@ -181,8 +184,9 @@ public class OrderController {
         return ResponseEntity.ok(responses);
     }
 
-    // 11. UPDATE ORDER DETAIL BY ORDER DETAIL ID
+    // 10. UPDATE ORDER DETAIL BY ORDER DETAIL ID
     @PutMapping("/order-details/{orderDetailId}")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(
             summary = "Update order detail by order detail ID",
             description = "Update order detail including note and items list. This will replace all existing items. Only allowed for PENDING or IN_PROGRESS orders."
@@ -210,7 +214,7 @@ public class OrderController {
         OrderDetailResponse response = orderService.updateOrderDetail(orderDetailId, request);
         return ResponseEntity.ok(response);
     }
-    // 12. LẤY ORDERS CÓ STATUS = PENDING THEO STORE ID
+    // 11. LẤY ORDERS CÓ STATUS = PENDING THEO STORE ID
     @GetMapping("/store/{storeId}/pending")
     @Operation(
             summary = "Get all pending orders by store ID",
@@ -228,8 +232,9 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-    // 13. LẤY TẤT CẢ ORDERS CÓ STATUS = PENDING
+    // 12. LẤY TẤT CẢ ORDERS CÓ STATUS = PENDING
     @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR','FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(
             summary = "Get all pending orders",
             description = "Retrieve all orders with PENDING status across all stores"
@@ -248,6 +253,7 @@ public class OrderController {
 
     // 14. XÁC NHẬN ORDER
     @PostMapping("/{orderId}/confirm")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(
             summary = "Confirm order",
             description = "Confirm a PENDING order and change status to IN_PROGRESS"

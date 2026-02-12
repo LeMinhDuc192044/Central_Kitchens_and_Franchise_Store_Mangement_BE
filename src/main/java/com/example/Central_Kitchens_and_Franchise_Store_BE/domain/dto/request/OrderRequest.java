@@ -1,5 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
@@ -14,11 +15,12 @@ import java.util.List;
 @AllArgsConstructor
 public class OrderRequest {
 
-    private String orderId;
-    private String note;
 
     @NotBlank(message = "Store ID is required")
     private String storeId;
+
+    @NotNull(message = "Payment option is required")
+    private PaymentOption paymentOption;
 
     @NotEmpty(message = "Order must have at least one item")
     @Valid
