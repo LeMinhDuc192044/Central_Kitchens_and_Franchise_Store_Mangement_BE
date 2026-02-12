@@ -34,7 +34,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-            <!-- ❌ DO NOT specify version - inherit from parent -->
         </dependency>
 
         <!-- Spring Boot Starter Security -->

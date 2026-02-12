@@ -54,7 +54,8 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/error",
                                 "/orders",
-                                "/auth/**"
+                                "/auth/**",
+                                "/central_foods/**"
                         ).permitAll()
                         // All other API endpoints require authentication (handled by @PreAuthorize in controllers)
                         .anyRequest().authenticated()
