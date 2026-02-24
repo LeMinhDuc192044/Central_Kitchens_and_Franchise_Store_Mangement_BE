@@ -75,7 +75,7 @@ public class OrderService {
                 orderId, request.getOrderDetails().size(), totalItems);
 
         // Bước 4: Chuyển Entity → DTO Response để trả về
-        return mapToResponse(savedOrder);
+        return toResponse(savedOrder);
     }
 
     // 2. LẤY ORDER THEO ID
@@ -200,7 +200,7 @@ public class OrderService {
         return updateOrderStatus(orderId, updateRequest);
     }
 
-    // 9. LẤY ORDER DETAIL THEO ID (Cách tối ưu với repository)
+    // 9. LẤY ORDER DETAIL THEO ORDER DETAIL ID
     @Transactional
     public OrderDetailResponse getOrderDetailById(String orderDetailId) {
         OrderDetail orderDetail = orderDetailRepository.findByOrderDetailId(orderDetailId)
@@ -349,7 +349,7 @@ public class OrderService {
                 .orderId(order.getOrderId())
                 .storeId(order.getStoreId())
                 .amount(BigDecimal.ZERO) // Sẽ tính sau
-                .note(request.getNote())  // ✅ THÊM NOTE Từ REQUEST
+                .note(request.getNote())
                 .build();
 
         // Tạo các OrderDetailItems và tính tổng amount
@@ -387,21 +387,6 @@ public class OrderService {
     /**
      * Chuyển Entity → Response DTO (có kèm OrderDetails và Items)
      */
-    private OrderResponse mapToResponse(Order order) {
-        List<OrderDetailResponse> orderDetailResponses = order.getOrderDetails().stream()
-                .map(this::mapToOrderDetailResponse)
-                .collect(Collectors.toList());
-
-        return OrderResponse.builder()
-                .orderId(order.getOrderId())
-                .priorityLevel(order.getPriorityLevel())
-                .orderDate(order.getOrderDate())
-                .paymentOption(order.getPaymentOption())
-                .statusOrder(order.getStatusOrder())
-                .storeId(order.getStoreId())
-                .build();
-    }
-
     private OrderResponse toResponse(Order order) {
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
@@ -424,7 +409,7 @@ public class OrderService {
         return OrderDetailResponse.builder()
                 .orderDetailId(orderDetail.getOrderDetailId())
                 .amount(orderDetail.getAmount())
-                .note(orderDetail.getNote())  // ✅ THÊM NOTE Từ ENTITY
+                .note(orderDetail.getNote())
                 .items(itemResponses)
                 .build();
     }
