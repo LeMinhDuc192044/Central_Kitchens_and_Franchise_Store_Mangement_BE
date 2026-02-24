@@ -115,23 +115,50 @@ public class GhnService {
     }
 
     // ─── CALCULATE FEE ────────────────────────────────────────────────────────
-    public Map<String, Object> calculateFee(int fromDistrictId, String fromWardCode,
-                                            int toDistrictId, String toWardCode,
-                                            int weight, int serviceTypeId) {
+    public Map<String, Object> calculateFeeFromOrder(String orderCode) {
+        // Step 1: Track the order to get all needed fields
+        Map<String, Object> trackResponse = trackOrder(orderCode);
+
+        if (trackResponse == null || !Integer.valueOf(200).equals(trackResponse.get("code"))) {
+            throw new RuntimeException("Failed to fetch order info for code: " + orderCode);
+        }
+
+        Map<String, Object> orderData = (Map<String, Object>) trackResponse.get("data");
+
+        // Step 2: Extract fields from tracked order
+        Integer fromDistrictId = (Integer) orderData.get("from_district_id");
+        String fromWardCode    = (String)  orderData.get("from_ward_code");
+        Integer toDistrictId   = (Integer) orderData.get("to_district_id");
+        String toWardCode      = (String)  orderData.get("to_ward_code");
+        Integer weight         = (Integer) orderData.get("weight");
+        Integer serviceTypeId  = (Integer) orderData.get("service_type_id");
+
+        log.info("Extracted from tracked order [{}]: fromDistrict={}, toDistrict={}, weight={}, serviceType={}",
+                orderCode, fromDistrictId, toDistrictId, weight, serviceTypeId);
+
+        // Step 3: Build fee request body using extracted fields
         String url = ghnConfig.getBaseUrl() + "/shiip/public-api/v2/shipping-order/fee";
 
         Map<String, Object> body = Map.of(
                 "from_district_id", fromDistrictId,
-                "from_ward_code", fromWardCode,
-                "to_district_id", toDistrictId,
-                "to_ward_code", toWardCode,
-                "weight", weight,
-                "service_type_id", serviceTypeId
+                "from_ward_code",   fromWardCode,
+                "to_district_id",   toDistrictId,
+                "to_ward_code",     toWardCode,
+                "weight",           weight,
+                "service_type_id",  serviceTypeId
         );
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, buildHeaders(true));
-        ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-        return response.getBody();
+
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            log.info("GHN Calculate Fee Response: {}", response.getBody());
+            return response.getBody();
+
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("GHN Calculate Fee Error: {}", e.getResponseBodyAsString());
+            throw new RuntimeException("GHN API error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
+        }
     }
 
     private String generateDeliverOrderId(Integer paymentTypeId, Integer serviceTypeId) {

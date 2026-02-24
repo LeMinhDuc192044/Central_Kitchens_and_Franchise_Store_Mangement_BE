@@ -35,17 +35,10 @@ public class DeliveryController {
         return ResponseEntity.ok(result);
     }
 
-    @PostMapping("/calculate-fee")
+    @GetMapping("/calculate-fee/{orderCode}")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
-    public ResponseEntity<?> calculateFee(@RequestBody Map<String, Object> request) {
-        Map<String, Object> result = ghnService.calculateFee(
-                (int) request.get("from_district_id"),
-                (String) request.get("from_ward_code"),
-                (int) request.get("to_district_id"),
-                (String) request.get("to_ward_code"),
-                (int) request.get("weight"),
-                (int) request.get("service_type_id")
-        );
+    public ResponseEntity<?> calculateFeeFromOrder(@PathVariable String orderCode) {
+        Map<String, Object> result = ghnService.calculateFeeFromOrder(orderCode);
         return ResponseEntity.ok(result);
     }
 }
