@@ -2,6 +2,8 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.config.GhnConfig;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateDeliveryOrderRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.dto.GhnCreateOrderPayload;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.util.RandomGeneratorUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ public class GhnService {
     private final RestTemplate restTemplate;
     private final GhnConfig ghnConfig;
     private final ObjectMapper objectMapper;
+    private final RandomGeneratorUtil randomGeneratorUtil;
 
     private HttpHeaders buildHeaders(boolean includeShopId) {
         HttpHeaders headers = new HttpHeaders();
@@ -35,6 +38,28 @@ public class GhnService {
     // ─── CREATE ORDER ─────────────────────────────────────────────────────────
     public Map<String, Object> createOrder(CreateDeliveryOrderRequest request) {
         String url = ghnConfig.getBaseUrl() + "/shiip/public-api/v2/shipping-order/create";
+
+        GhnCreateOrderPayload payload = GhnCreateOrderPayload.builder()
+                .payment_type_id(request.getPayment_type_id())
+                .note(request.getNote())
+                .required_note(request.getRequired_note())
+                .to_name(request.getTo_name())
+                .to_phone(request.getTo_phone())
+                .to_address(request.getTo_address())
+                .to_ward_code(request.getTo_ward_code())
+                .to_district_id(request.getTo_district_id())
+                .cod_amount(request.getCod_amount())
+                .weight(request.getWeight())
+                .length(request.getLength())
+                .width(request.getWidth())
+                .height(request.getHeight())
+                .service_type_id(request.getService_type_id())
+                .items(request.getItems())
+                .client_order_code(generateDeliverOrderId(
+                        request.getPayment_type_id(),
+                        request.getService_type_id()
+                ))
+                .build();
 
         HttpEntity<CreateDeliveryOrderRequest> entity = new HttpEntity<>(request, buildHeaders(true));
 
@@ -107,5 +132,22 @@ public class GhnService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, buildHeaders(true));
         ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
         return response.getBody();
+    }
+
+    private String generateDeliverOrderId(Integer paymentTypeId, Integer serviceTypeId) {
+        String paymentPrefix = switch (paymentTypeId) {
+            case 1 -> "SE"; // Sender pays
+            case 2 -> "RE"; // Receiver pays
+            default -> throw new IllegalArgumentException("Invalid payment_type_id");
+        };
+
+        String servicePrefix = switch (serviceTypeId) {
+            case 1 -> "EX"; // Express
+            case 2 -> "ST"; // Standard
+            default -> throw new IllegalArgumentException("Invalid service_type_id");
+        };
+
+        return "DO_" + paymentPrefix + "_" + servicePrefix + "_" + randomGeneratorUtil.randomSix();
+
     }
 }
