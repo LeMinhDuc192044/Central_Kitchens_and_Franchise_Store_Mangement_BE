@@ -2,7 +2,13 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.config.GhnConfig;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateDeliveryOrderRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.dto.GhnCreateOrderPayload;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.CentralFoods;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.FoodStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnCreateOrderPayload;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.GhnMapper;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.RandomGeneratorUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +19,11 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +34,8 @@ public class GhnService {
     private final GhnConfig ghnConfig;
     private final ObjectMapper objectMapper;
     private final RandomGeneratorUtil randomGeneratorUtil;
+    private final CentralFoodsRepository centralFoodsRepository;
+    private final GhnMapper ghnMapper;
 
     private HttpHeaders buildHeaders(boolean includeShopId) {
         HttpHeaders headers = new HttpHeaders();
@@ -36,65 +48,19 @@ public class GhnService {
     }
 
     // ─── CREATE ORDER ─────────────────────────────────────────────────────────
+
+
     public Map<String, Object> createOrder(CreateDeliveryOrderRequest request) {
-        String url = ghnConfig.getBaseUrl() + "/shiip/public-api/v2/shipping-order/create";
 
-        GhnCreateOrderPayload payload = GhnCreateOrderPayload.builder()
-                .payment_type_id(request.getPayment_type_id())
-                .note(request.getNote())
-                .required_note(request.getRequired_note())
-                .to_name(request.getTo_name())
-                .to_phone(request.getTo_phone())
-                .to_address(request.getTo_address())
-                .to_ward_code(request.getTo_ward_code())
-                .to_district_id(request.getTo_district_id())
-                .cod_amount(request.getCod_amount())
-                .weight(request.getWeight())
-                .length(request.getLength())
-                .width(request.getWidth())
-                .height(request.getHeight())
-                .service_type_id(request.getService_type_id())
-                .items(request.getItems())
-                .client_order_code(generateDeliverOrderId(
-                        request.getPayment_type_id(),
-                        request.getService_type_id()
-                ))
-                .build();
+        List<CentralFoods> centralFoods = validateAndFetchFoods(request.getFoods());
 
-        HttpEntity<CreateDeliveryOrderRequest> entity = new HttpEntity<>(request, buildHeaders(true));
+        List<GhnItem> items =
+                ghnMapper.convertToGhnItems(request.getFoods(), centralFoods);
 
-        try {
+        GhnCreateOrderPayload payload =
+                buildGhnPayload(request, items);
 
-            ResponseEntity<Map> response =
-                    restTemplate.exchange(
-                            url,
-                            HttpMethod.POST,
-                            entity,
-                            Map.class
-                    );
-
-            log.info("GHN Status: {}", response.getStatusCode());
-            log.info("GHN Response Body: {}", response.getBody());
-
-            return response.getBody();
-
-        } catch (HttpClientErrorException | HttpServerErrorException e) {
-
-            log.error("GHN API ERROR STATUS: {}", e.getStatusCode());
-            log.error("GHN API ERROR BODY: {}", e.getResponseBodyAsString());
-
-            throw new RuntimeException(
-                    "GHN API error: " +
-                            e.getStatusCode() +
-                            " - " +
-                            e.getResponseBodyAsString()
-            );
-
-        } catch (Exception e) {
-
-            log.error("Unexpected error calling GHN", e);
-            throw new RuntimeException("Unexpected GHN error: " + e.getMessage());
-        }
+        return callGhnCreateOrderApi(payload);
     }
 
     // ─── TRACK ORDER ──────────────────────────────────────────────────────────
@@ -176,5 +142,105 @@ public class GhnService {
 
         return "DO_" + paymentPrefix + "_" + servicePrefix + "_" + randomGeneratorUtil.randomSix();
 
+    }
+//----------------------------SUPPORTING FUNCTION----------------------------------------------------------------------
+    private List<CentralFoods> validateAndFetchFoods(Map<String, Integer> foods) {
+
+        List<String> foodIds = new ArrayList<>(foods.keySet());
+
+        List<CentralFoods> centralFoods =
+                centralFoodsRepository.findByCentralFoodIdIn(foodIds);
+
+        Set<String> foundIds = centralFoods.stream()
+                .map(CentralFoods::getCentralFoodId)
+                .collect(Collectors.toSet());
+
+        List<String> missingIds = foodIds.stream()
+                .filter(id -> !foundIds.contains(id))
+                .toList();
+
+        List<String> invalidStatusFoods = centralFoods.stream()
+                .filter(food -> food.getCentralFoodStatus() != FoodStatus.AVAILABLE)
+                .map(CentralFoods::getCentralFoodId)
+                .toList();
+
+        if (!invalidStatusFoods.isEmpty()) {
+            throw new IllegalStateException(
+                    "Food not available: " + invalidStatusFoods);
+        }
+
+
+        return centralFoods;
+    }
+
+    private GhnCreateOrderPayload buildGhnPayload(
+            CreateDeliveryOrderRequest request,
+            List<GhnItem> items) {
+
+        return GhnCreateOrderPayload.builder()
+                .payment_type_id(request.getPayment_type_id())
+                .note(request.getNote())
+                .required_note(request.getRequired_note())
+                .to_name(request.getTo_name())
+                .to_phone(request.getTo_phone())
+                .to_address(request.getTo_address())
+                .to_ward_code(request.getTo_ward_code())
+                .to_district_id(request.getTo_district_id())
+                .cod_amount(request.getCod_amount())
+                .weight(request.getWeight())
+                .length(request.getLength())
+                .width(request.getWidth())
+                .height(request.getHeight())
+                .service_type_id(request.getService_type_id())
+                .items(items)
+                .client_order_code(generateDeliverOrderId(
+                        request.getPayment_type_id(),
+                        request.getService_type_id()
+                ))
+                .build();
+    }
+
+    private Map<String, Object> callGhnCreateOrderApi(
+            GhnCreateOrderPayload payload) {
+
+        String url = ghnConfig.getBaseUrl()
+                + "/shiip/public-api/v2/shipping-order/create";
+
+        HttpEntity<GhnCreateOrderPayload> entity =
+                new HttpEntity<>(payload, buildHeaders(true));
+
+        try {
+
+            ResponseEntity<Map> response =
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.POST,
+                            entity,
+                            Map.class
+                    );
+
+            log.info("GHN Status: {}", response.getStatusCode());
+            log.info("GHN Response: {}", response.getBody());
+
+            return response.getBody();
+
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+
+            log.error("GHN API ERROR STATUS: {}", e.getStatusCode());
+            log.error("GHN API ERROR BODY: {}", e.getResponseBodyAsString());
+
+            throw new RuntimeException(
+                    "GHN API error: "
+                            + e.getStatusCode()
+                            + " - "
+                            + e.getResponseBodyAsString()
+            );
+
+        } catch (Exception e) {
+
+            log.error("Unexpected error calling GHN", e);
+            throw new RuntimeException(
+                    "Unexpected GHN error: " + e.getMessage());
+        }
     }
 }

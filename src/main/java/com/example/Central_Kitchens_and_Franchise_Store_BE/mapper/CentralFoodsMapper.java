@@ -19,6 +19,10 @@ public class CentralFoodsMapper {
                 .centralFoodType(food.getFoodType())
                 .recipe(food.getRecipe())
                 .amount(food.getAmount())
+                .weight(food.getWeight()) // for order delivery
+                .length(food.getLength()) // for order delivery
+                .width(food.getWidth()) // for order delivery
+                .height(food.getHeight()) // for order delivery
                 .expiryDate(food.getExpiryDate())
                 .manufacturingDate(food.getManufacturingDate())
                 .centralFoodStatus(food.getCentralFoodStatus())
@@ -29,6 +33,10 @@ public class CentralFoodsMapper {
     public CentralFoods convertToEntity(CentralFoodsRequest dto) {
         return CentralFoods.builder()
                 .foodName(dto.getFoodName())
+                .weight(dto.getWeight())
+                .length(dto.getLength())
+                .width(dto.getWidth())
+                .height(dto.getHeight())
                 .amount(dto.getAmount())
                 .expiryDate(dto.getExpiryDate())
                 .manufacturingDate(dto.getManufacturingDate())

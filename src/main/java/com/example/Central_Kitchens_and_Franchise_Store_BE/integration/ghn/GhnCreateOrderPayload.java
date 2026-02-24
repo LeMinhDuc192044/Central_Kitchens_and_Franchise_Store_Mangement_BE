@@ -1,6 +1,5 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.dto;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.GhnItem;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.RequiredNote;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;

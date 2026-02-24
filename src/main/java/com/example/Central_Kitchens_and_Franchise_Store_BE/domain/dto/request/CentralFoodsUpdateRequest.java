@@ -29,7 +29,12 @@ public class CentralFoodsUpdateRequest {
     private FoodStatus centralFoodStatus;
 
     @Positive(message = "Amount must be greater than 0")
-    private BigDecimal unitPriceFood;
+    private Integer unitPriceFood;
+
+    private Integer weight;           // grams
+    private Integer length;           // cm
+    private Integer width;            // cm
+    private Integer height;
 
     private String recipeId;
     private String centralFoodTypeId;

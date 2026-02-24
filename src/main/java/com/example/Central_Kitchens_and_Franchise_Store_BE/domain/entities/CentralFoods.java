@@ -46,7 +46,23 @@ public class CentralFoods {
 
     @Column(name = "unit_price_food")
     @Positive
-    private BigDecimal unitPriceFood;
+    private Integer unitPriceFood;
+
+    @Column(name = "food_weight")
+    @Positive
+    private Integer weight;
+
+    @Column(name = "food_length")
+    @Positive
+    private Integer length;
+
+    @Column(name = "food_width")
+    @Positive
+    private Integer width;
+
+    @Column(name = "food_height")
+    @Positive
+    private Integer height;
 
     @ManyToOne
     @JoinColumn(name = "recipe_id", referencedColumnName = "recipe_id", insertable = false, updatable = false)

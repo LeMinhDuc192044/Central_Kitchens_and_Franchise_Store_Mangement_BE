@@ -112,6 +112,10 @@ public class CentralFoodsService {
         existingFood.setManufacturingDate(foodDTO.getManufacturingDate());
         existingFood.setCentralFoodStatus(foodDTO.getCentralFoodStatus());
         existingFood.setUnitPriceFood(foodDTO.getUnitPriceFood());
+        existingFood.setWeight(foodDTO.getWeight());
+        existingFood.setHeight(foodDTO.getHeight());
+        existingFood.setLength(foodDTO.getLength());
+        existingFood.setWidth(foodDTO.getWidth());
 
         CentralFoods updatedFood = foodsRepository.save(existingFood);
         return centralFoodsMapper.convertToDTO(updatedFood);

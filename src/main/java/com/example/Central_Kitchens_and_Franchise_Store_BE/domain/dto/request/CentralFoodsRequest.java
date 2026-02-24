@@ -36,10 +36,22 @@ public class CentralFoodsRequest {
 
     @NotNull(message = "Amount must not be null")
     @Positive(message = "Amount must be greater than 0")
-    private BigDecimal unitPriceFood;
+    private Integer unitPriceFood;
 
     @NotBlank(message = "RecipeId must not be blank!!")
     private String recipeId;
+
+    @NotNull(message = "Weight must not be blank!!!!")
+    private Integer weight;           // grams
+
+    @NotNull(message = "Length must not be blank!!!!")
+    private Integer length;           // cm
+
+    @NotNull(message = "Width must not be blank!!!!")
+    private Integer width;            // cm
+
+    @NotNull(message = "Height must not be blank!!!!")
+    private Integer height;
 
     @NotBlank(message = "CentralFoodTypeId must not be blank!!")
     private String centralFoodTypeId;
