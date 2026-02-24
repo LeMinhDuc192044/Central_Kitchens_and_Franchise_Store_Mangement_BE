@@ -14,5 +14,5 @@ public class OrderUpdateRequest {
     @NotNull(message = "Order status is required")
     private OrderStatus newStatus;
 
-    private String note; // Ghi chú khi cập nhật trạng thái (optional)
+    private String note;
 }
