@@ -1,6 +1,7 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -32,6 +33,10 @@ public class Order {
     @Column(name = "note")
     private String note;
 
+    @Column(name = "payment_option")
+    @Enumerated(EnumType.STRING)
+    private PaymentOption paymentOption;
+
     @Column(name = "order_date")
     @CreationTimestamp
     private LocalDate orderDate;
@@ -47,7 +52,21 @@ public class Order {
     @JoinColumn(name = "store_id_fk", referencedColumnName = "store_id", insertable = false, updatable = false)
     private FranchiseStore franchiseStore;
 
-    @OneToMany(mappedBy = "orderDetailId", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<OrderDetail> orderDetails = new ArrayList<>();
+
+    // Helper method để thêm OrderDetail
+    public void addOrderDetail(OrderDetail orderDetail) {
+        orderDetails.add(orderDetail);
+        orderDetail.setOrder(this);
+        orderDetail.setOrderId(this.orderId);
+        orderDetail.setStoreId(this.storeId);
+    }
+
+    // Helper method để remove OrderDetail
+    public void removeOrderDetail(OrderDetail orderDetail) {
+        orderDetails.remove(orderDetail);
+        orderDetail.setOrder(null);
+    }
 }

@@ -1,118 +1,283 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.OrderRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.*;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.OrderUpdateRequest;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
+
+@RestController
+@RequestMapping("/orders")
 @Slf4j
-@RestController  // Kết hợp @Controller + @ResponseBody
-@RequestMapping("/orders")  // Base URL
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 public class OrderController {
 
     private final OrderService orderService;
 
-    // 1. TẠO ORDER - POST /api/orders
+    // 1. TẠO ORDER
     @PostMapping
     @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Create order")
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest request) {
         OrderResponse response = orderService.createOrder(request);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // 2. LẤY ORDER THEO ID - GET /api/orders/{orderId}
+    // 2. LẤY ORDER THEO ID
     @GetMapping("/{orderId}")
-    @Operation(summary = "Get order by id")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'SUPPLY_COORDINATOR', 'CENTRAL_KITCHEN_STAFF', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Get order by order id")
     public ResponseEntity<OrderResponse> getOrderById(@PathVariable String orderId) {
-        // @PathVariable: Lấy giá trị từ URL
-        // Ví dụ: /api/orders/ORD001 → orderId = "ORD001"
+
         OrderResponse response = orderService.getOrderById(orderId);
         return ResponseEntity.ok(response);  // Status 200 OK
     }
 
-    // 3. LẤY TẤT CẢ ORDERS - GET /api/orders
+    // 3. LẤY TẤT CẢ ORDERS
     @GetMapping
-    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get all orders")
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
         List<OrderResponse> orders = orderService.getAllOrders();
         return ResponseEntity.ok(orders);
     }
 
-    // 4. LẤY ORDERS THEO STORE - GET /api/orders/store/{storeId}
+    // 4. LẤY ORDERS THEO STORE ID
     @GetMapping("/orders/{storeId}")
-    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF','SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get order by store id")
     public ResponseEntity<List<OrderResponse>> getOrdersByStore(@PathVariable String storeId) {
         List<OrderResponse> orders = orderService.getOrdersByStoreId(storeId);
         return ResponseEntity.ok(orders);
     }
 
-    // 5. CẬP NHẬT ORDER - PUT /api/orders/{orderId}
-    @PutMapping("/{orderId}")
-    @Operation(summary = "Update order")
-    public ResponseEntity<OrderResponse> updateOrder(@Valid
-            @PathVariable String orderId,
-            @RequestBody OrderRequest request) {
-        OrderResponse response = orderService.updateOrder(orderId, request);
-        return ResponseEntity.ok(response);
-    }
+//    //  CẬP NHẬT ORDER
+//    @PutMapping("/{orderId}")
+//    @Operation(summary = "Update order")
+//    public ResponseEntity<OrderResponse> updateOrder(@Valid
+//            @PathVariable String orderId,
+//            @RequestBody OrderRequest request) {
+//        OrderResponse response = orderService.updateOrder(orderId, request);
+//        return ResponseEntity.ok(response);
+//    }
 
-    // 6. XÓA ORDER - DELETE /api/orders/{orderId}
-    @DeleteMapping("/{orderId}")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
-    @Operation(summary = "Delete order")
-    public ResponseEntity<Void> deleteOrder(@PathVariable String orderId) {
-        orderService.deleteOrder(orderId);
-        return ResponseEntity.noContent().build();  // Status 204 NO CONTENT
-    }
+//    //  XÓA ORDER - DELETE /api/orders/{orderId}
+//    @DeleteMapping("/{orderId}")
+//    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+//    @Operation(summary = "Delete order")
+//    public ResponseEntity<Void> deleteOrder(@PathVariable String orderId) {
+//        orderService.deleteOrder(orderId);
+//        return ResponseEntity.noContent().build();  // Status 204 NO CONTENT
+//    }
 
 
-    //Cập nhật trạng thái đơn hàng
+    //5. Update order's status
     @PutMapping("/{orderId}/status")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR','CENTRAL_KITCHEN_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Update order status", description = "Update the status of an order with validation")
     public ResponseEntity<OrderResponse> updateOrderStatus(
-            @PathVariable String orderId,  // ← Đổi từ Long sang String
+            @PathVariable String orderId,
             @Valid @RequestBody OrderUpdateRequest updateRequest) {
 
         OrderResponse response = orderService.updateOrderStatus(orderId, updateRequest);
         return ResponseEntity.ok(response);
     }
 
-    //Hủy đơn hàng
+    //6. Cancel order
     @PostMapping("/{orderId}/cancel")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR','CENTRAL_KITCHEN_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Cancel order", description = "Cancel an order with reason")
     public ResponseEntity<OrderResponse> cancelOrder(
-            @PathVariable String orderId,  // ← Đổi từ Long sang String
+            @PathVariable String orderId,
             @RequestParam(required = false) String reason) {
 
         OrderResponse response = orderService.cancelOrder(orderId, reason);
         return ResponseEntity.ok(response);
     }
 
+    //7. Update priority level
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(
+            summary = "Update order priority",
+            description = "Update the priority level of an order (1=HIGH, 2=MEDIUM, 3=LOW). " +
+                    "⚠️ Note: When setting priority for the first time (null → value) and status is PENDING, " +
+                    "the status will automatically transition to IN_PROGRESS."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Priority updated successfully. Status may auto-transition from PENDING to IN_PROGRESS if this is the first priority assignment.",
+                    content = @Content(schema = @Schema(implementation = OrderResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid priority level (must be 1-3) or same as current priority",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Order not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Cannot change priority for order status (e.g., CANCELLED, COOKING_DONE)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            )
+    })
+    @PatchMapping("/{orderId}/priority")
+    public ResponseEntity<OrderResponse> updateOrderPriority(
+            @PathVariable String orderId,
+            @Valid @RequestBody PriorityUpdateRequest request) {
+        OrderResponse response = orderService.updateOrderPriority(orderId, request);
+        return ResponseEntity.ok(response);
+    }
 
-//    //Xem các luồng đi hợp lệ của status
-//    @GetMapping("/{orderId}/available-transitions")
-//    @Operation(summary = "Get available status transitions",
-//            description = "Get list of statuses that the order can transition to")
-//    public ResponseEntity<Set<OrderStatus>> getAvailableTransitions(@PathVariable String orderId) {
-//        Set<OrderStatus> transitions = orderService.getAvailableStatusTransitions(orderId);
-//        return ResponseEntity.ok(transitions);
-//    }
+    //8. GET ORDER DETAIL Item BY OrderDetailID
+    @GetMapping("/order-details/{orderDetailId}")
+    @Operation(
+            summary = "Get all order detail items by order detail ID"
+    )
+    public ResponseEntity<OrderDetailResponse> getOrderDetailById(
+            @PathVariable String orderDetailId) {
+        OrderDetailResponse response = orderService.getOrderDetailById(orderDetailId);
+        return ResponseEntity.ok(response);
+    }
+
+    // 9. GET ALL ORDER DETAILS BY ORDER ID
+    @GetMapping("/{orderId}/order-details")
+    @Operation(
+            summary = "Get all order details by order ID",
+            description = "Retrieve all order details for a specific order. Example: GET /orders/ORD013/order-details"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Successfully retrieved order details",
+                    content = @Content(schema = @Schema(implementation = OrderDetailResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Order not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            )
+    })
+    public ResponseEntity<List<OrderDetailResponse>> getAllOrderDetailsByOrderId(
+            @PathVariable String orderId) {
+        List<OrderDetailResponse> responses = orderService.getAllOrderDetailsByOrderId(orderId);
+        return ResponseEntity.ok(responses);
+    }
+
+    // 10. UPDATE ORDER DETAIL BY ORDER DETAIL ID
+    @PutMapping("/order-details/{orderDetailId}")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    @Operation(
+            summary = "Update order detail by order detail ID",
+            description = "Update order detail including note and items list. This will replace all existing items. Only allowed for PENDING or IN_PROGRESS orders."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Order detail updated successfully",
+                    content = @Content(schema = @Schema(implementation = OrderDetailResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Order detail not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request or order status doesn't allow update",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            )
+    })
+    public ResponseEntity<OrderDetailResponse> updateOrderDetail(
+            @PathVariable String orderDetailId,
+            @Valid @RequestBody OrderDetailUpdateRequest request) {
+        OrderDetailResponse response = orderService.updateOrderDetail(orderDetailId, request);
+        return ResponseEntity.ok(response);
+    }
+    // 11. LẤY ORDERS CÓ STATUS = PENDING THEO STORE ID
+    @GetMapping("/store/{storeId}/pending")
+    @Operation(
+            summary = "Get all pending orders by store ID",
+            description = "Retrieve all orders with PENDING status for a specific store"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Successfully retrieved pending orders",
+                    content = @Content(schema = @Schema(implementation = OrderResponse.class))
+            )
+    })
+    public ResponseEntity<List<OrderResponse>> getPendingOrdersByStore(@PathVariable String storeId) {
+        List<OrderResponse> orders = orderService.getAllOrdersWithPendingStatusByStoreId(storeId);
+        return ResponseEntity.ok(orders);
+    }
+
+    // 12. LẤY TẤT CẢ ORDERS CÓ STATUS = PENDING
+    @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR','FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    @Operation(
+            summary = "Get all pending orders",
+            description = "Retrieve all orders with PENDING status across all stores"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Successfully retrieved all pending orders",
+                    content = @Content(schema = @Schema(implementation = OrderResponse.class))
+            )
+    })
+    public ResponseEntity<List<OrderResponse>> getAllPendingOrders() {
+        List<OrderResponse> orders = orderService.getAllOrdersWithPendingStatus();
+        return ResponseEntity.ok(orders);
+    }
+
+    // 14. XÁC NHẬN ORDER
+    @PostMapping("/{orderId}/confirm")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(
+            summary = "Confirm order",
+            description = "Confirm a PENDING order and change status to IN_PROGRESS"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Order confirmed successfully, status changed to IN_PROGRESS",
+                    content = @Content(schema = @Schema(implementation = OrderResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Order not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Order is not in PENDING status",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            )
+    })
+    public ResponseEntity<OrderResponse> confirmOrder(@PathVariable String orderId) {
+        OrderResponse response = orderService.confirmOrder(orderId);
+        return ResponseEntity.ok(response);
+    }
+
 }
