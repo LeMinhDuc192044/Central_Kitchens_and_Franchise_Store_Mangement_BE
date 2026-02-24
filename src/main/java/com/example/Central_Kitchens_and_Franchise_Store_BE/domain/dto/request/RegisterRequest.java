@@ -26,6 +26,6 @@ public class RegisterRequest {
 
     private String phone;
 
-    @NotBlank(message = "Must have role name")
+    @NotNull(message = "Must have role id")
     private Long idRole;
 }
