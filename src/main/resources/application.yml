@@ -31,12 +31,19 @@ app:
     allow-credentials: true
 
 
+ghn:
+ base-url: https://dev-online-gateway.ghn.vn
+ token: ${API_TOKEN}
+ shop-id: ${SHOP_ID}
+
 springdoc:
     api-docs:
         path: /api-docs
     swagger-ui:
         path: /swagger-ui.html
         enabled: true
+
+
 
 
 
