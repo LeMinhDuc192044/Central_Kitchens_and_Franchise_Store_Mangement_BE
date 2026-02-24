@@ -1,4 +1,4 @@
-package com.example.Central_Kitchens_and_Franchise_Store_BE.utils;
+package com.example.Central_Kitchens_and_Franchise_Store_BE.util;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import lombok.extern.slf4j.Slf4j;
