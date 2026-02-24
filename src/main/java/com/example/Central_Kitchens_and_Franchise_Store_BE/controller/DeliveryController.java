@@ -22,19 +22,21 @@ public class DeliveryController {
     private final GhnService ghnService;
 
     @PostMapping("/create-order")
-    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     public ResponseEntity<?> createOrder(@RequestBody @Valid CreateDeliveryOrderRequest request) {
         Map<String, Object> result = ghnService.createOrder(request);
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/track/{orderCode}")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     public ResponseEntity<?> trackOrder(@PathVariable String orderCode) {
         Map<String, Object> result = ghnService.trackOrder(orderCode);
         return ResponseEntity.ok(result);
     }
 
     @PostMapping("/calculate-fee")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     public ResponseEntity<?> calculateFee(@RequestBody Map<String, Object> request) {
         Map<String, Object> result = ghnService.calculateFee(
                 (int) request.get("from_district_id"),
