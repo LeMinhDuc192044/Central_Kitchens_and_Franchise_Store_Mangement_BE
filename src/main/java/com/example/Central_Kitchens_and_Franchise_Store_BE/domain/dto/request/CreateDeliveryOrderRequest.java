@@ -20,7 +20,7 @@ public class CreateDeliveryOrderRequest {
 
     private String note;
 
-    @NotBlank(message = "Required note must not be blank and should be 'CHOTHUHANG', 'CHOXEMHANGKHONGTHU', 'KHONGCHOXEMHANG'")
+    @NotNull(message = "Required note must not be blank and should be 'CHOTHUHANG', 'CHOXEMHANGKHONGTHU', 'KHONGCHOXEMHANG'")
     private RequiredNote required_note;     // CHOTHUHANG, CHOXEMHANGKHONGTHU, KHONGCHOXEMHANG
 
     @NotBlank(message = "Name of the receiver must not be blank!!!")
