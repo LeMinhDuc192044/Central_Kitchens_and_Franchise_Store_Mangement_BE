@@ -9,5 +9,4 @@ public class CreatePaymentResponse {
     private String txnRef;       // Mã giao dịch
     private String paymentUrl;   // URL redirect sang VNPay
     private Long amount;
-    private String orderInfo;
 }

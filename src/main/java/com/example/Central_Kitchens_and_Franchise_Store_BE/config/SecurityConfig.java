@@ -54,7 +54,10 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/error",
                                 "/orders",
-                                "/auth/**"
+                                "/auth/**",
+                                "/payment",
+                                "/payment/vnpay-return",
+                                "/payment/vnpay-ipn"
                         ).permitAll()
                         // All other API endpoints require authentication (handled by @PreAuthorize in controllers)
                         .anyRequest().authenticated()

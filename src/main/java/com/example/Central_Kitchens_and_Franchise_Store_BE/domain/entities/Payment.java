@@ -6,6 +6,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Getter
@@ -29,10 +30,6 @@ public class Payment {
     // Ví dụ: 150000 = 150,000 VNĐ
     @Column(name = "amount", nullable = false)
     private Long amount;
-
-    // Mô tả đơn hàng, hiển thị trên trang thanh toán VNPay
-    @Column(name = "order_info")
-    private String orderInfo;
 
     // Trạng thái giao dịch: PENDING / SUCCESS / FAILED / CANCELLED
     @Column(name = "status")
@@ -84,6 +81,11 @@ public class Payment {
 
     @PrePersist
     void prePersist() {
+        // Tự generate ID nếu chưa có
+        if (this.paymentId == null) {
+            this.paymentId = "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            // Ví dụ: PAY-A1B2C3D4
+        }
         this.status = PaymentStatus.PENDING;
     }
 }

@@ -1,22 +1,26 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
 import java.time.LocalDateTime;
-
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
-public class PaymentResultResponse {
+
+public class PaymentResponse {
+    private String id;
     private String txnRef;
     private Long amount;
-    private PaymentStatus status;
+    private String status;
     private String responseCode;
-    private String responseMessage;
+    private String ipAddress;
     private String bankCode;
     private String bankTranNo;
     private String cardType;
     private String vnpayTxnNo;
     private LocalDateTime paidAt;
+    private LocalDateTime createdAt;
+    private String orderId;
 }
