@@ -1,6 +1,7 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.RequiredNote;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipServiceType;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
 import jakarta.persistence.*;
 import lombok.*;
@@ -57,8 +58,9 @@ public class Shipment {
     @Column(name = "height")
     private Integer height;
 
-    @Column(name = "service_type_id")
-    private Integer service_type_id;
+    @Column(name = "service_type")
+    @Enumerated(EnumType.STRING)
+    private ShipServiceType service_type;
 
     @Column(name = "client_order_code")
     private String client_order_code;

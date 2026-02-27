@@ -4,6 +4,8 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.config.GhnConfig;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateDeliveryOrderRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.FoodStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipPaymentType;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipServiceType;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.GhnMapper;
@@ -55,7 +57,7 @@ public class GhnService {
         log.info("Creating order with payment_type_id: {}", request.getPayment_type_id());
 
         OrderDetail orderDetail = orderDetailRepository.findByOrderDetailId(request.getOrderDetailId())
-                .orElseThrow(() -> new ResourceNotFoundException("" + request.getOrderDetailId() + " does not existed!!!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order details with this id " + request.getOrderDetailId() + " does not existed!!!"));
 
         // Step 1: Validate foods
         List<CentralFoods> centralFoods = validateAndFetchFoods(request.getFoods());
@@ -67,13 +69,12 @@ public class GhnService {
         Shipment shipment = buildShipmentPayload(request, items);
 
         // Step 4: Call GHN API
-        Map<String, Object> ghnResponse = callGhnCreateOrderApi(shipment, request.getPayment_type_id());
+        Map<String, Object> ghnResponse = callGhnCreateOrderApi(request, items, shipment.getGhnOrderCode());
 
         // Step 5: Extract GHN order code from response
         Map<String, Object> data = (Map<String, Object>) ghnResponse.get("data");
         String ghnOrderCode = (String) data.get("order_code");
 
-        log.info("GHN Order created with code: {}", ghnOrderCode);
 
         // Step 6: Save Shipment to database
         shipment.setShipmentCodeId(shipment.getClient_order_code()); // Use client_order_code as ID
@@ -81,13 +82,20 @@ public class GhnService {
         shipment.setOrderDetail(orderDetail); // set order detail
         Shipment savedShipment = shipmentRepository.save(shipment);
 
-        log.info("Shipment saved with ID: {}", savedShipment.getShipmentCodeId());
+        ShipPaymentType paymentType = null;
+        if(request.getPayment_type_id() == 1) {
+            paymentType = ShipPaymentType.SENDER_PAY;
+        } else if(request.getPayment_type_id() == 2) {
+            paymentType = ShipPaymentType.RECEIVER_PAY;
+        } else {
+            throw new RuntimeException("Payment id is null or is not 1, 2!!!!");
+        }
 
         // Step 7: Create and save ShipInvoice
         ShipInvoice shipInvoice = ShipInvoice.builder()
                 .shipInvoiceId(generateShipInvoiceId())
                 .shipmentCodeId(savedShipment.getShipmentCodeId())
-                .paymentTypeId(request.getPayment_type_id())
+                .paymentType(paymentType)
                 .totalPrice(BigDecimal.ZERO) // Will be updated when fee is calculated
                 .build();
 
@@ -137,8 +145,7 @@ public class GhnService {
         Integer weight         = (Integer) orderData.get("weight");
         Integer serviceTypeId  = (Integer) orderData.get("service_type_id");
 
-        log.info("Extracted from tracked order [{}]: fromDistrict={}, toDistrict={}, weight={}, serviceType={}",
-                orderCode, fromDistrictId, toDistrictId, weight, serviceTypeId);
+
 
         // Step 3: Build fee request body using extracted fields
         String url = ghnConfig.getBaseUrl() + "/shiip/public-api/v2/shipping-order/fee";
@@ -177,7 +184,6 @@ public class GhnService {
             shipInvoice.setTotalPrice(BigDecimal.valueOf(totalFee));
             shipInvoiceRepository.save(shipInvoice);
 
-            log.info("ShipInvoice {} updated with total price: {}", shipInvoice.getShipInvoiceId(), totalFee);
 
             return feeResponse;
 
@@ -240,6 +246,17 @@ public class GhnService {
     }
 
     private Shipment buildShipmentPayload(CreateDeliveryOrderRequest request, List<GhnItem> items) {
+
+
+        ShipServiceType serviceType = null;
+        if(request.getService_type_id() == 1) {
+            serviceType = ShipServiceType.EXPRESS;
+        } else if(request.getService_type_id() == 2) {
+            serviceType = ShipServiceType.STANDARD;
+        } else {
+            throw new RuntimeException("Service type id is null or is not 1, 2!!!!!");
+        }
+
         return Shipment.builder()
                 .note(request.getNote())
                 .required_note(request.getRequired_note())
@@ -253,7 +270,7 @@ public class GhnService {
                 .length(request.getLength())
                 .width(request.getWidth())
                 .height(request.getHeight())
-                .service_type_id(request.getService_type_id())
+                .service_type(serviceType)
                 .items(items) // Transient field for GHN API
                 .client_order_code(generateDeliverOrderId(
                         request.getPayment_type_id(),
@@ -262,27 +279,28 @@ public class GhnService {
                 .build();
     }
 
-    private Map<String, Object> callGhnCreateOrderApi(Shipment shipment, Integer paymentTypeId) {
+    private Map<String, Object> callGhnCreateOrderApi(CreateDeliveryOrderRequest createDeliveryOrderRequest,
+                                                      List<GhnItem> items, String clientOrderCode) {
         String url = ghnConfig.getBaseUrl() + "/shiip/public-api/v2/shipping-order/create";
 
         // Build request body for GHN API
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("payment_type_id", paymentTypeId);
-        requestBody.put("note", shipment.getNote());
-        requestBody.put("required_note", shipment.getRequired_note());
-        requestBody.put("to_name", shipment.getTo_name());
-        requestBody.put("to_phone", shipment.getTo_phone());
-        requestBody.put("to_address", shipment.getTo_address());
-        requestBody.put("to_ward_code", shipment.getTo_ward_code());
-        requestBody.put("to_district_id", shipment.getTo_district_id());
-        requestBody.put("cod_amount", shipment.getCod_amount());
-        requestBody.put("weight", shipment.getWeight());
-        requestBody.put("length", shipment.getLength());
-        requestBody.put("width", shipment.getWidth());
-        requestBody.put("height", shipment.getHeight());
-        requestBody.put("service_type_id", shipment.getService_type_id());
-        requestBody.put("items", shipment.getItems());
-        requestBody.put("client_order_code", shipment.getClient_order_code());
+        requestBody.put("payment_type_id", createDeliveryOrderRequest.getPayment_type_id());
+        requestBody.put("note", createDeliveryOrderRequest.getNote());
+        requestBody.put("required_note", createDeliveryOrderRequest.getRequired_note());
+        requestBody.put("to_name", createDeliveryOrderRequest.getTo_name());
+        requestBody.put("to_phone", createDeliveryOrderRequest.getTo_phone());
+        requestBody.put("to_address", createDeliveryOrderRequest.getTo_address());
+        requestBody.put("to_ward_code", createDeliveryOrderRequest.getTo_ward_code());
+        requestBody.put("to_district_id", createDeliveryOrderRequest.getTo_district_id());
+        requestBody.put("cod_amount", createDeliveryOrderRequest.getCod_amount());
+        requestBody.put("weight", createDeliveryOrderRequest.getWeight());
+        requestBody.put("length", createDeliveryOrderRequest.getLength());
+        requestBody.put("width", createDeliveryOrderRequest.getWidth());
+        requestBody.put("height", createDeliveryOrderRequest.getHeight());
+        requestBody.put("service_type_id", createDeliveryOrderRequest.getService_type_id());
+        requestBody.put("items", items);
+        requestBody.put("client_order_code", clientOrderCode);
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, buildHeaders(true));
 

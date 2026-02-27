@@ -1,5 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipPaymentType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -21,8 +22,9 @@ public class ShipInvoice {
     @Column(name = "total_price")
     private BigDecimal totalPrice;
 
-    @Column(name = "payment_type_id")
-    private Integer paymentTypeId;
+    @Column(name = "payment_type")
+    @Enumerated(EnumType.STRING)
+    private ShipPaymentType paymentType;
 
     @Column(name = "shipment_code_id_fk")
     private String shipmentCodeId;
