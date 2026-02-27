@@ -58,27 +58,30 @@ Value	Description
 📌 API Endpoint
 POST /api/delivery/create
 📥 Request Body TEST
+
 {
-"payment_type_id": 2,
-"note": "Deliver during office hours",
-"required_note": "CHOTHUHANG",
-"to_name": "Le Minh Duc",
-"to_phone": "0899306764",
-"to_address": "123 Nguyen Trai Street",
-"to_ward_code": "20308",
-"to_district_id": 1454,
-"cod_amount": 250000,
-"weight": 1200,
-"length": 30,
-"width": 20,
-"height": 15,
-"service_type_id": 2,
-"orderDetailId": "OD_001_01",
-"foods": {
-"CE_CH_FO_130001": 2,
-"CE_CH_FO_130002": 1
+  "payment_type_id": 2,
+  "note": "Deliver during office hours",
+  "required_note": "CHOTHUHANG",
+  "to_name": "Le Minh Duc",
+  "to_phone": "0899306764",
+  "to_address": "123 Nguyen Trai Street",
+  "to_ward_code": "20308",
+  "to_district_id": 1454,
+  "cod_amount": 250000,
+  "weight": 1200,
+  "length": 30,
+  "width": 20,
+  "height": 15,
+  "service_type_id": 2,
+  "orderDetailId": "OD_001_01",
+  "foods": {
+    "CE_CH_FO_130001": 2,
+    "CE_CH_FO_130002": 1
+  }
 }
-}
+
+
 🧠 Field Explanation
 Receiver Information
 
