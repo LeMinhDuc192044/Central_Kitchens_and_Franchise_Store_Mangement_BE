@@ -59,6 +59,7 @@ Value	Description
 POST /api/delivery/create
 📥 Request Body TEST
 
+```json
 {
   "payment_type_id": 2,
   "note": "Deliver during office hours",
@@ -80,6 +81,7 @@ POST /api/delivery/create
     "CE_CH_FO_130002": 1
   }
 }
+```
 
 
 🧠 Field Explanation
