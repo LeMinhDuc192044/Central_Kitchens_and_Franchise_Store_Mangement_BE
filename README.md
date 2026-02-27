@@ -57,7 +57,7 @@ Value	Description
 2	Standard delivery
 📌 API Endpoint
 POST /api/delivery/create
-📥 Request Body Example
+📥 Request Body TEST
 {
 "payment_type_id": 2,
 "note": "Deliver during office hours",
