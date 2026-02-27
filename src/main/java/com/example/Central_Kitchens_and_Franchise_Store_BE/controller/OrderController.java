@@ -1,8 +1,10 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderInvoiceResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderInvoiceService;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -29,6 +31,7 @@ import java.util.List;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderInvoiceService orderInvoiceService;
 
     // 1. TẠO ORDER
     @PostMapping
@@ -279,5 +282,25 @@ public class OrderController {
         OrderResponse response = orderService.confirmOrder(orderId);
         return ResponseEntity.ok(response);
     }
+
+    // ── GET Invoice theo OrderID ────────────────────────────────────────────────
+    @GetMapping("/{orderId}/invoice")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(
+            summary = "Get invoice by order ID",
+            description = "Retrieve the invoice associated with a specific order"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Invoice retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = OrderInvoiceResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Invoice not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<OrderInvoiceResponse> getInvoiceByOrderId(@PathVariable String orderId) {
+        OrderInvoiceResponse response = orderInvoiceService.getInvoiceByOrderId(orderId);
+        return ResponseEntity.ok(response);
+    }
+
+
 
 }

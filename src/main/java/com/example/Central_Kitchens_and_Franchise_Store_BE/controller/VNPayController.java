@@ -65,7 +65,7 @@ public class VNPayController {
     }
 
     @GetMapping("/order/{orderId}")
-    @Operation(summary = "Get all payment bby order id")
+    @Operation(summary = "Get payment by order id")
     @PreAuthorize("hasAnyRole('FRANCHISE_STAFF','SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResult<List<PaymentResponse>>> getPaymentsByOrderId(
             @PathVariable String orderId) {

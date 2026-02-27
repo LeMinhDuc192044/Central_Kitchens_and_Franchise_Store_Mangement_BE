@@ -8,6 +8,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Payment;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.PaymentRecord;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderInvoiceRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.PaymentRecordRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.PaymentRepository;
@@ -20,10 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -37,7 +36,7 @@ public class VNPayService {
 
     private final VNPayProperties vnPayProperties;
     private final PaymentRepository paymentRepository;
-    private final ObjectMapper objectMapper;
+    private final OrderInvoiceRepository orderInvoiceRepository;
     private final OrderRepository orderRepository;
 
     // ============================================================
@@ -198,6 +197,18 @@ public class VNPayService {
         if ("00".equals(responseCode)) {
             payment.setStatus(PaymentStatus.SUCCESS);
             payment.setPaidAt(LocalDateTime.now());
+
+            // ── Cập nhật invoice ──────────────────────────────────
+            String orderId = payment.getOrderId();
+            orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
+                invoice.setInvoiceStatus("PAID");
+                invoice.setPaymentType("VNPAY");
+                invoice.setTotalAmount(BigDecimal.valueOf(payment.getAmount()));
+                invoice.setPaidDate(LocalDate.now());
+                orderInvoiceRepository.save(invoice);
+                log.info("Invoice updated to PAID for orderId: {}", orderId);
+            });
+            // ─────────────────────────────────────────────────────
         } else {
             payment.setStatus(PaymentStatus.FAILED);
         }
