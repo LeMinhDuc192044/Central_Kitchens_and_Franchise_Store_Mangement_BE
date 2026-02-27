@@ -1,11 +1,13 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.RequiredNote;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipServiceType;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -23,6 +25,9 @@ public class Shipment {
 
     @Column(name = "note")
     private String note;
+
+    @Column(name = "Ship Status")
+    String shipStatus;
 
     @Column(name = "required_note")
     @Enumerated(EnumType.STRING)
@@ -68,9 +73,12 @@ public class Shipment {
     @Column(name = "ghn_order_code")
     private String ghnOrderCode;
 
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
     @Transient // Not stored in DB, used for GHN API
     private List<GhnItem> items;
-
 
     @OneToOne
     @JoinColumn(name = "order_detail_id_fk", referencedColumnName = "order_detail_id", insertable = false, updatable = false)

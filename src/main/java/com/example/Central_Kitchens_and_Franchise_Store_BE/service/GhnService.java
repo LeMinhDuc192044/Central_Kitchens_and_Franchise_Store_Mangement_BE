@@ -21,6 +21,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -80,6 +81,9 @@ public class GhnService {
         shipment.setShipmentCodeId(shipment.getClient_order_code()); // Use client_order_code as ID
         shipment.setGhnOrderCode(ghnOrderCode);
         shipment.setOrderDetail(orderDetail); // set order detail
+        shipment.setCreatedAt(LocalDateTime.now());
+        shipment.setUpdatedAt(LocalDateTime.now());
+
         Shipment savedShipment = shipmentRepository.save(shipment);
 
         ShipPaymentType paymentType = null;

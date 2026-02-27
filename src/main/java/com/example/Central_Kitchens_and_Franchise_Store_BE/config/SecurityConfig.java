@@ -42,7 +42,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/auth/login",
                                 "/auth/create",
-                                "/auth/refresh"
+                                "/auth/refresh",
+                                "/webhook/**"
                         ).permitAll()
                         // Public endpoints - Swagger/OpenAPI
                         .requestMatchers(
