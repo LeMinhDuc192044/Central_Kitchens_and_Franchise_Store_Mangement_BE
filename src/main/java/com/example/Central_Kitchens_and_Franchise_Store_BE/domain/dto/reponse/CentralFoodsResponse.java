@@ -24,7 +24,11 @@ public class CentralFoodsResponse {
     private LocalDate expiryDate;
     private LocalDate manufacturingDate;
     private FoodStatus centralFoodStatus;
-    private BigDecimal unitPriceFood;
+    private Integer unitPriceFood;
+    private Integer weight;           // grams
+    private Integer length;           // cm
+    private Integer width;            // cm
+    private Integer height;
     private Recipe recipe;
     private CentralFoodCategory centralFoodType;
 }

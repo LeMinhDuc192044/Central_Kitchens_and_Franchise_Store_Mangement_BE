@@ -1,12 +1,14 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.RequiredNote;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.*;
 import lombok.Builder;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -54,5 +56,9 @@ public class CreateDeliveryOrderRequest {
     @Max(2)
     private Integer service_type_id;  // 1=Express, 2=Standard
 
-    private List<GhnItem> items;
+    @NotBlank(message = "Need orderDetail Id to know who order is this?")
+    private String orderDetailId;
+
+    @NotEmpty(message = "Food list must not be empty")
+    private Map<String, Integer> foods;
 }

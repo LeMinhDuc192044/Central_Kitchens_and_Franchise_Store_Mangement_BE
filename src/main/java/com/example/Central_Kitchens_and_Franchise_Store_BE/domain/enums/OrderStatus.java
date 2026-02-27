@@ -5,5 +5,13 @@ public enum OrderStatus {
     IN_PROGRESS,
     CANCELLED,
     COOKING_DONE,
-    WAITING_FOR_UPDATE
+    WAITING_FOR_UPDATE,
+    READY_TO_PICK,      // GHN: ready_to_pick
+    PICKING,            // GHN: picking
+    PICKED,             // GHN: picked
+    DELIVERING,         // GHN: delivering
+    DELIVERED,          // GHN: delivered
+    DELIVERY_FAILED,    // GHN: delivery_fail
+    WAITING_TO_RETURN,  // GHN: waiting_to_return
+    RETURNED,           // GHN: return_transporting / returned
 }

@@ -57,4 +57,8 @@ public class FranchiseStore {
     @OneToMany(mappedBy = "franchiseStore", cascade = CascadeType.ALL)
     @Builder.Default
     private Set<Order> orders = new HashSet<>();
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manager_id", referencedColumnName = "id")
+    private User manager;
 }

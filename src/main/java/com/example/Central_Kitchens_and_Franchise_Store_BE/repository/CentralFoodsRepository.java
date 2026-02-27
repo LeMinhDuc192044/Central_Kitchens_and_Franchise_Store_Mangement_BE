@@ -20,4 +20,6 @@ public interface CentralFoodsRepository extends JpaRepository<CentralFoods, Stri
 
     // Find foods expiring soon (within next N days)
     List<CentralFoods> findByExpiryDateBetween(LocalDate startDate, LocalDate endDate);
+
+    List<CentralFoods> findByCentralFoodIdIn(List<String> ids);
 }
