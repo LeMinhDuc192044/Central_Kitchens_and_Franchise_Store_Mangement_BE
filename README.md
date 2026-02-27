@@ -1,9 +1,14 @@
 📦 Delivery Order Module
 
+Note:
+ - In order for this to work you must first use TESTDATA.md in order for this to work and 
+copy id in user using select * from users from SUPPLY COORDINATOR and put into order_detail 
+in supply_coordinator_id_fk in TESTDATA.md; 
+
 Central Kitchen & Franchise Store Backend
 GHN (Giao Hàng Nhanh) Integration
 
-📖 Overview
+📖 Overview 
 
 This module integrates GHN (Giao Hàng Nhanh) shipping API into the system to:
 
