@@ -56,6 +56,9 @@ public class CreateDeliveryOrderRequest {
     @Max(2)
     private Integer service_type_id;  // 1=Express, 2=Standard
 
+    @NotBlank(message = "Need orderDetail Id to know who order is this?")
+    private String orderDetailId;
+
     @NotEmpty(message = "Food list must not be empty")
     private Map<String, Integer> foods;
 }

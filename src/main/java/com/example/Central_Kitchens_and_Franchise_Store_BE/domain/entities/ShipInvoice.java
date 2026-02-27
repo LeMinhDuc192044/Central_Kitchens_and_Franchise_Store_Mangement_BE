@@ -21,11 +21,8 @@ public class ShipInvoice {
     @Column(name = "total_price")
     private BigDecimal totalPrice;
 
-    @Column(name = "payment_type")
-    private String paymentType;
-
-    @Column(name = "travel_distance")
-    private Double travelDistance;
+    @Column(name = "payment_type_id")
+    private Integer paymentTypeId;
 
     @Column(name = "shipment_code_id_fk")
     private String shipmentCodeId;

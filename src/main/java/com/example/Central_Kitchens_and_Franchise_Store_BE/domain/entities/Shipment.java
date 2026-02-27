@@ -1,9 +1,11 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.RequiredNote;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDate;
+import java.util.List;
 
 @Entity
 @Getter
@@ -18,44 +20,55 @@ public class Shipment {
     @Column(name = "shipment_code_id")
     private String shipmentCodeId;
 
-    @Column(name = "delivery_address")
-    private String deliveryAddress;
+    @Column(name = "note")
+    private String note;
 
-    @Column(name = "place_of_receipt")
-    private String placeOfReceipt;
+    @Column(name = "required_note")
+    @Enumerated(EnumType.STRING)
+    private RequiredNote required_note;
 
-    @Column(name = "date")
-    private LocalDate date;
+    @Column(name = "receiver")
+    private String to_name;
 
-    @Column(name = "payment")
-    private String payment;
+    @Column(name = "receiver_phone_number")
+    private String to_phone;
 
-    @Column(name = "name_of_consignee")
-    private String nameOfConsignee;
+    @Column(name = "address")
+    private String to_address;
 
-    @Column(name = "phone_number_of_consignee")
-    private String phoneNumberOfConsignee;
+    @Column(name = "ward_code")
+    private String to_ward_code;
 
-    @Column(name = "notes")
-    private String notes;
+    @Column(name = "district_id")
+    private Integer to_district_id;
+
+    @Column(name = "cod_amount")
+    private Integer cod_amount;
 
     @Column(name = "weight")
-    private Double weight;
+    private Integer weight;
 
-    @Column(name = "type_of_unit_load")
-    private String typeOfUnitLoad;
+    @Column(name = "length")
+    private Integer length;
 
-    @Column(name = "name_of_receiver")
-    private String nameOfReceiver;
+    @Column(name = "width")
+    private Integer width;
 
-    @Column(name = "phone_number_of_receiver")
-    private String phoneNumberOfReceiver;
+    @Column(name = "height")
+    private Integer height;
 
-    @Column(name = "ship_status")
-    private String shipStatus;
+    @Column(name = "service_type_id")
+    private Integer service_type_id;
 
-    @Column(name = "order_detail_id_fk")
-    private String orderDetailId;
+    @Column(name = "client_order_code")
+    private String client_order_code;
+
+    @Column(name = "ghn_order_code")
+    private String ghnOrderCode;
+
+    @Transient // Not stored in DB, used for GHN API
+    private List<GhnItem> items;
+
 
     @OneToOne
     @JoinColumn(name = "order_detail_id_fk", referencedColumnName = "order_detail_id", insertable = false, updatable = false)

@@ -2,27 +2,24 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.config.GhnConfig;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateDeliveryOrderRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.CentralFoods;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.FoodStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnCreateOrderPayload;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.GhnMapper;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.RandomGeneratorUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.math.BigDecimal;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,10 +29,13 @@ public class GhnService {
 
     private final RestTemplate restTemplate;
     private final GhnConfig ghnConfig;
-    private final ObjectMapper objectMapper;
+    private final ShipmentRepository shipmentRepository;
+    private final ShipInvoiceRepository shipInvoiceRepository;
     private final RandomGeneratorUtil randomGeneratorUtil;
     private final CentralFoodsRepository centralFoodsRepository;
+    private final OrderDetailRepository orderDetailRepository;
     private final GhnMapper ghnMapper;
+
 
     private HttpHeaders buildHeaders(boolean includeShopId) {
         HttpHeaders headers = new HttpHeaders();
@@ -49,18 +49,53 @@ public class GhnService {
 
     // ─── CREATE ORDER ─────────────────────────────────────────────────────────
 
-
+    @Transactional
     public Map<String, Object> createOrder(CreateDeliveryOrderRequest request) {
 
+        log.info("Creating order with payment_type_id: {}", request.getPayment_type_id());
+
+        OrderDetail orderDetail = orderDetailRepository.findByOrderDetailId(request.getOrderDetailId())
+                .orElseThrow(() -> new ResourceNotFoundException("" + request.getOrderDetailId() + " does not existed!!!"));
+
+        // Step 1: Validate foods
         List<CentralFoods> centralFoods = validateAndFetchFoods(request.getFoods());
 
-        List<GhnItem> items =
-                ghnMapper.convertToGhnItems(request.getFoods(), centralFoods);
+        // Step 2: Convert to GHN items
+        List<GhnItem> items = ghnMapper.convertToGhnItems(request.getFoods(), centralFoods);
 
-        GhnCreateOrderPayload payload =
-                buildGhnPayload(request, items);
+        // Step 3: Build Shipment payload
+        Shipment shipment = buildShipmentPayload(request, items);
 
-        return callGhnCreateOrderApi(payload);
+        // Step 4: Call GHN API
+        Map<String, Object> ghnResponse = callGhnCreateOrderApi(shipment, request.getPayment_type_id());
+
+        // Step 5: Extract GHN order code from response
+        Map<String, Object> data = (Map<String, Object>) ghnResponse.get("data");
+        String ghnOrderCode = (String) data.get("order_code");
+
+        log.info("GHN Order created with code: {}", ghnOrderCode);
+
+        // Step 6: Save Shipment to database
+        shipment.setShipmentCodeId(shipment.getClient_order_code()); // Use client_order_code as ID
+        shipment.setGhnOrderCode(ghnOrderCode);
+        shipment.setOrderDetail(orderDetail); // set order detail
+        Shipment savedShipment = shipmentRepository.save(shipment);
+
+        log.info("Shipment saved with ID: {}", savedShipment.getShipmentCodeId());
+
+        // Step 7: Create and save ShipInvoice
+        ShipInvoice shipInvoice = ShipInvoice.builder()
+                .shipInvoiceId(generateShipInvoiceId())
+                .shipmentCodeId(savedShipment.getShipmentCodeId())
+                .paymentTypeId(request.getPayment_type_id())
+                .totalPrice(BigDecimal.ZERO) // Will be updated when fee is calculated
+                .build();
+
+        shipInvoiceRepository.save(shipInvoice);
+
+        log.info("ShipInvoice created with ID: {}", shipInvoice.getShipInvoiceId());
+
+        return ghnResponse;
     }
 
     // ─── TRACK ORDER ──────────────────────────────────────────────────────────
@@ -81,7 +116,10 @@ public class GhnService {
     }
 
     // ─── CALCULATE FEE ────────────────────────────────────────────────────────
+    @Transactional
     public Map<String, Object> calculateFeeFromOrder(String orderCode) {
+        log.info("Calculating fee for order: {}", orderCode);
+
         // Step 1: Track the order to get all needed fields
         Map<String, Object> trackResponse = trackOrder(orderCode);
 
@@ -119,7 +157,29 @@ public class GhnService {
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
             log.info("GHN Calculate Fee Response: {}", response.getBody());
-            return response.getBody();
+
+            Map<String, Object> feeResponse = response.getBody();
+
+            // Step 4: Extract fee from response
+            Map<String, Object> feeData = (Map<String, Object>) feeResponse.get("data");
+            Integer totalFee = (Integer) feeData.get("total");
+
+            log.info("Total fee calculated: {}", totalFee);
+
+            // Step 5: Find Shipment by GHN order code
+            Shipment shipment = shipmentRepository.findByGhnOrderCode(orderCode)
+                    .orElseThrow(() -> new RuntimeException("Shipment not found for GHN order code: " + orderCode));
+
+            // Step 6: Update ShipInvoice with total price
+            ShipInvoice shipInvoice = shipInvoiceRepository.findByShipmentCodeId(shipment.getShipmentCodeId())
+                    .orElseThrow(() -> new RuntimeException("ShipInvoice not found for shipment: " + shipment.getShipmentCodeId()));
+
+            shipInvoice.setTotalPrice(BigDecimal.valueOf(totalFee));
+            shipInvoiceRepository.save(shipInvoice);
+
+            log.info("ShipInvoice {} updated with total price: {}", shipInvoice.getShipInvoiceId(), totalFee);
+
+            return feeResponse;
 
         } catch (HttpClientErrorException | HttpServerErrorException e) {
             log.error("GHN Calculate Fee Error: {}", e.getResponseBodyAsString());
@@ -141,15 +201,19 @@ public class GhnService {
         };
 
         return "DO_" + paymentPrefix + "_" + servicePrefix + "_" + randomGeneratorUtil.randomSix();
-
     }
-//----------------------------SUPPORTING FUNCTION----------------------------------------------------------------------
+
+    private String generateShipInvoiceId() {
+        return "SI_" + randomGeneratorUtil.randomSix();
+    }
+
+    //----------------------------SUPPORTING FUNCTION----------------------------------------------------------------------
+
     private List<CentralFoods> validateAndFetchFoods(Map<String, Integer> foods) {
 
         List<String> foodIds = new ArrayList<>(foods.keySet());
 
-        List<CentralFoods> centralFoods =
-                centralFoodsRepository.findByCentralFoodIdIn(foodIds);
+        List<CentralFoods> centralFoods = centralFoodsRepository.findByCentralFoodIdIn(foodIds);
 
         Set<String> foundIds = centralFoods.stream()
                 .map(CentralFoods::getCentralFoodId)
@@ -159,26 +223,24 @@ public class GhnService {
                 .filter(id -> !foundIds.contains(id))
                 .toList();
 
+        if (!missingIds.isEmpty()) {
+            throw new IllegalArgumentException("Foods not found: " + missingIds);
+        }
+
         List<String> invalidStatusFoods = centralFoods.stream()
                 .filter(food -> food.getCentralFoodStatus() != FoodStatus.AVAILABLE)
                 .map(CentralFoods::getCentralFoodId)
                 .toList();
 
         if (!invalidStatusFoods.isEmpty()) {
-            throw new IllegalStateException(
-                    "Food not available: " + invalidStatusFoods);
+            throw new IllegalStateException("Food not available: " + invalidStatusFoods);
         }
-
 
         return centralFoods;
     }
 
-    private GhnCreateOrderPayload buildGhnPayload(
-            CreateDeliveryOrderRequest request,
-            List<GhnItem> items) {
-
-        return GhnCreateOrderPayload.builder()
-                .payment_type_id(request.getPayment_type_id())
+    private Shipment buildShipmentPayload(CreateDeliveryOrderRequest request, List<GhnItem> items) {
+        return Shipment.builder()
                 .note(request.getNote())
                 .required_note(request.getRequired_note())
                 .to_name(request.getTo_name())
@@ -192,7 +254,7 @@ public class GhnService {
                 .width(request.getWidth())
                 .height(request.getHeight())
                 .service_type_id(request.getService_type_id())
-                .items(items)
+                .items(items) // Transient field for GHN API
                 .client_order_code(generateDeliverOrderId(
                         request.getPayment_type_id(),
                         request.getService_type_id()
@@ -200,24 +262,37 @@ public class GhnService {
                 .build();
     }
 
-    private Map<String, Object> callGhnCreateOrderApi(
-            GhnCreateOrderPayload payload) {
+    private Map<String, Object> callGhnCreateOrderApi(Shipment shipment, Integer paymentTypeId) {
+        String url = ghnConfig.getBaseUrl() + "/shiip/public-api/v2/shipping-order/create";
 
-        String url = ghnConfig.getBaseUrl()
-                + "/shiip/public-api/v2/shipping-order/create";
+        // Build request body for GHN API
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("payment_type_id", paymentTypeId);
+        requestBody.put("note", shipment.getNote());
+        requestBody.put("required_note", shipment.getRequired_note());
+        requestBody.put("to_name", shipment.getTo_name());
+        requestBody.put("to_phone", shipment.getTo_phone());
+        requestBody.put("to_address", shipment.getTo_address());
+        requestBody.put("to_ward_code", shipment.getTo_ward_code());
+        requestBody.put("to_district_id", shipment.getTo_district_id());
+        requestBody.put("cod_amount", shipment.getCod_amount());
+        requestBody.put("weight", shipment.getWeight());
+        requestBody.put("length", shipment.getLength());
+        requestBody.put("width", shipment.getWidth());
+        requestBody.put("height", shipment.getHeight());
+        requestBody.put("service_type_id", shipment.getService_type_id());
+        requestBody.put("items", shipment.getItems());
+        requestBody.put("client_order_code", shipment.getClient_order_code());
 
-        HttpEntity<GhnCreateOrderPayload> entity =
-                new HttpEntity<>(payload, buildHeaders(true));
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, buildHeaders(true));
 
         try {
-
-            ResponseEntity<Map> response =
-                    restTemplate.exchange(
-                            url,
-                            HttpMethod.POST,
-                            entity,
-                            Map.class
-                    );
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    Map.class
+            );
 
             log.info("GHN Status: {}", response.getStatusCode());
             log.info("GHN Response: {}", response.getBody());
@@ -225,22 +300,16 @@ public class GhnService {
             return response.getBody();
 
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-
             log.error("GHN API ERROR STATUS: {}", e.getStatusCode());
             log.error("GHN API ERROR BODY: {}", e.getResponseBodyAsString());
 
             throw new RuntimeException(
-                    "GHN API error: "
-                            + e.getStatusCode()
-                            + " - "
-                            + e.getResponseBodyAsString()
+                    "GHN API error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString()
             );
 
         } catch (Exception e) {
-
             log.error("Unexpected error calling GHN", e);
-            throw new RuntimeException(
-                    "Unexpected GHN error: " + e.getMessage());
+            throw new RuntimeException("Unexpected GHN error: " + e.getMessage());
         }
     }
 }
