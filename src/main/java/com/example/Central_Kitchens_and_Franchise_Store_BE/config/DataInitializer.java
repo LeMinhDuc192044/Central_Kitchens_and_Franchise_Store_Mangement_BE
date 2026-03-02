@@ -53,7 +53,7 @@ public class DataInitializer {
             );
 
             createUserIfNotExists(
-                        "staffFrachise@test.com",
+                    "staffFrachise@test.com",
                     "Franchise staff Test User",
                     "0900000002",
                     UserRole.FRANCHISE_STAFF
