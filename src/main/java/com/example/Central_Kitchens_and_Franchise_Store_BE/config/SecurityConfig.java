@@ -55,8 +55,9 @@ public class SecurityConfig {
                                 "/error",
                                 "/orders",
                                 "/auth/**",
-                                "/central_foods/**",
-                                "/delivery/**"
+                                "/payment",
+                                "/payment/vnpay-return",
+                                "/payment/vnpay-ipn"
                         ).permitAll()
                         // All other API endpoints require authentication (handled by @PreAuthorize in controllers)
                         .anyRequest().authenticated()

@@ -7,8 +7,10 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.Or
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetail;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetailItem;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderInvoice;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderDetailRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderInvoiceRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.FoodPriceUtil;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.IdGeneratorUtil;
@@ -39,7 +41,7 @@ public class OrderService {
     private final OrderIdGenerator orderIdGenerator;
     private final PriorityLevelValidator priorityValidator;
     private final OrderDetailRepository orderDetailRepository;
-
+    private final OrderInvoiceRepository orderInvoiceRepository;
 
     // 1. TẠO ORDER MỚI (CÓ KÈM ORDER DETAILS VÀ ITEMS)
     @Transactional
@@ -65,6 +67,19 @@ public class OrderService {
 
         // Bước 3: Lưu vào database (cascade sẽ tự động lưu OrderDetail và OrderDetailItem)
         Order savedOrder = orderRepository.save(order);
+
+        // Lấy orderDetailId đầu tiên của order vừa tạo
+        String orderDetailId = savedOrder.getOrderDetails().get(0).getOrderDetailId();
+
+        OrderInvoice invoice = OrderInvoice.builder()
+                .orderInvoiceId("INV-" + savedOrder.getOrderId())
+                .orderId(orderDetailId)  // truyền orderDetailId vì FK trỏ vào order_detail
+                .invoiceStatus("PENDING")
+                .build();
+        orderInvoiceRepository.save(invoice);
+        log.info("Created invoice INV-{} for order {}", savedOrder.getOrderId(), savedOrder.getOrderId());
+        orderInvoiceRepository.save(invoice);
+
 
         // Đếm tổng số món trong tất cả OrderDetails
         int totalItems = request.getOrderDetails().stream()
