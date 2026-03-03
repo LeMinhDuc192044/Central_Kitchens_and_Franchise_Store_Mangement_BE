@@ -253,7 +253,7 @@ public class OrderService {
                 .orElseThrow(() -> new RuntimeException(
                         "Không tìm thấy sản phẩm: " + request.getCentralFoodId()));
 
-        BigDecimal unitPrice = centralFood.getUnitPriceFood();
+        BigDecimal unitPrice = BigDecimal.valueOf(centralFood.getUnitPriceFood());
         BigDecimal totalAmount = unitPrice.multiply(BigDecimal.valueOf(request.getQuantity()));
 
         return OrderDetailItem.builder()
