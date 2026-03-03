@@ -131,6 +131,13 @@ public class AuthService {
             throw new AuthenticationException("Account is deactivated");
         }
 
+        FranchiseStoreInfo franchiseStoreInfo = null;
+        if (user.getRole().getName().equals(UserRole.FRANCHISE_STAFF))
+        {
+            franchiseStoreInfo = toInfo(user.getManagedStore());
+        }
+
+
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
         String token = jwtUtils.generateToken(userDetails);
         String refreshToken = jwtUtils.generateRefreshToken(userDetails);
@@ -147,6 +154,7 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .role(user.getRole().getName().name())
                 .userId(user.getId())
+                .franchiseStoreInfo(franchiseStoreInfo)
                 .build();
     }
 
