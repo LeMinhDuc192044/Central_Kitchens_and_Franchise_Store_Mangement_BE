@@ -5,6 +5,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.Cr
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentResultResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetail;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Payment;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.PaymentRecord;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
@@ -14,7 +15,6 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.PaymentRec
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.PaymentRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.VNPayResponseCode;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.VNPayUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,9 +54,12 @@ public class VNPayService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
 
-        Long totalAmount = order.getOrderDetails().stream()
-                .map(detail -> detail.getAmount() != null ? detail.getAmount().longValue() : 0L)
-                .reduce(0L, Long::sum);
+        OrderDetail orderDetail = order.getOrderDetail();
+        if (orderDetail == null || orderDetail.getAmount() == null) {
+            throw new RuntimeException("Đơn hàng không có thông tin chi tiết");
+        }
+
+        Long totalAmount = orderDetail.getAmount().longValue();
 
         if (totalAmount <= 0) {
             throw new RuntimeException("Đơn hàng không có giá trị");

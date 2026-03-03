@@ -15,15 +15,15 @@ import java.util.List;
 @AllArgsConstructor
 public class OrderRequest {
 
-
     @NotBlank(message = "Store ID is required")
     private String storeId;
 
     @NotNull(message = "Payment option is required")
     private PaymentOption paymentOption;
 
-    @NotEmpty(message = "Order must have at least one item")
-    @Valid
-    private List<OrderDetailRequest> orderDetails;
+    private String note;
 
+    @NotNull(message = "Order detail is required")
+    @Valid
+    private OrderDetailRequest orderDetail;
 }

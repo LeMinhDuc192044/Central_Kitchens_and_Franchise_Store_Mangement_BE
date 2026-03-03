@@ -16,7 +16,6 @@ import java.util.List;
 public class OrderDetailRequest {
 
 
-    private String note;
     @NotEmpty(message = "OrderDetail must have at least one item")
     @Valid
     private List<OrderDetailItemRequest> items;
