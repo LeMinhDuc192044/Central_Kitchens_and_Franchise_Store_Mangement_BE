@@ -48,8 +48,7 @@ public class DataInitializer {
                     "admin@centralkitchen.com",
                     "System Administrator",
                     "0901234567",
-                    UserRole.ADMIN,
-                    "admin123"
+                    UserRole.ADMIN
             );
 
             // MANAGERS
@@ -57,24 +56,21 @@ public class DataInitializer {
                     "manager@centralkitchen.com",
                     "Operations Manager",
                     "0902345678",
-                    UserRole.MANAGER,
-                    "manager123"
+                    UserRole.MANAGER
             );
 
             createUserIfNotExists(
                     "supply@centralkitchen.com",
                     "Supply Coordinator",
                     "0905678901",
-                    UserRole.SUPPLY_COORDINATOR,
-                    "supply123"
+                    UserRole.SUPPLY_COORDINATOR
             );
 
             createUserIfNotExists(
                     "kitchen@centralkitchen.com",
                     "Head Chef",
                     "0904567890",
-                    UserRole.CENTRAL_KITCHEN_STAFF,
-                    "kitchen123"
+                    UserRole.CENTRAL_KITCHEN_STAFF
             );
 
             // FRANCHISE STAFF (Store Managers)
@@ -82,24 +78,21 @@ public class DataInitializer {
                     "store1.manager@centralkitchen.com",
                     "District 1 Store Manager",
                     "0903456790",
-                    UserRole.FRANCHISE_STAFF,
-                    "store123"
+                    UserRole.FRANCHISE_STAFF
             );
 
             createUserIfNotExists(
                     "store2.manager@centralkitchen.com",
                     "District 2 Store Manager",
                     "0903456791",
-                    UserRole.FRANCHISE_STAFF,
-                    "store123"
+                    UserRole.FRANCHISE_STAFF
             );
 
             createUserIfNotExists(
                     "store3.manager@centralkitchen.com",
                     "District 3 Store Manager",
                     "0903456792",
-                    UserRole.FRANCHISE_STAFF,
-                    "store123"
+                    UserRole.FRANCHISE_STAFF
             );
 
             createStoreIfNotExists(
@@ -176,8 +169,7 @@ public class DataInitializer {
             String email,
             String fullName,
             String phone,
-            UserRole roleName,
-            String password
+            UserRole roleName
     ) {
         if (userRepository.existsByEmail(email)) {
             return;
@@ -189,7 +181,7 @@ public class DataInitializer {
         User user = User.builder()
                 .fullName(fullName)
                 .email(email)
-                .password(passwordEncoder.encode(password))
+                .password(passwordEncoder.encode("123456"))
                 .phone(phone)
                 .role(role)
                 .active(true)
