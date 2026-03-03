@@ -59,13 +59,8 @@ public class OrderDetail {
         this.amount = calculateTotalAmount(); // sync
     }
 
-    public void removeOrderDetailItem(OrderDetailItem item) {
-        orderDetailItems.remove(item);
-        item.setOrderDetail(null);
-        this.amount = calculateTotalAmount(); // sync
-    }
 
-    // ✅ Tính tổng từ items
+
     public BigDecimal calculateTotalAmount() {
         return orderDetailItems.stream()
                 .map(OrderDetailItem::getTotalAmount)

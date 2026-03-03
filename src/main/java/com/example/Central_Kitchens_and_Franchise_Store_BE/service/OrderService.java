@@ -92,15 +92,6 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
-    // 4. XÓA ORDER
-    @Transactional
-    public void deleteOrder(String orderId) {
-        if (!orderRepository.existsById(orderId)) {
-            throw new RuntimeException("Order not found");
-        }
-        orderRepository.deleteById(orderId);
-    }
-
     // 5. UPDATE ORDER STATUS
     @Transactional
     public OrderResponse updateOrderStatus(String orderId, OrderUpdateRequest updateRequest) {
@@ -161,37 +152,6 @@ public class OrderService {
     }
 
 
-    // 11. UPDATE ORDER DETAIL
-    @Transactional
-    public OrderDetailResponse updateOrderDetail(String orderDetailId, OrderDetailUpdateRequest request) {
-        OrderDetail orderDetail = orderDetailRepository.findByOrderDetailId(orderDetailId)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Order detail not found with id: " + orderDetailId));
-
-        Order order = orderRepository.findById(orderDetail.getOrderId())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Order not found with id: " + orderDetail.getOrderId()));
-
-        if (!canUpdateOrderDetail(order.getStatusOrder())) {
-            throw new IllegalStateException(
-                    "Cannot update order detail. Order status is: " + order.getStatusOrder());
-        }
-
-
-        // ✅ Xóa items cũ và rebuild
-        orderDetail.getOrderDetailItems().clear();
-
-        for (OrderDetailItemRequest itemRequest : request.getItems()) {
-            OrderDetailItem item = buildOrderDetailItem(orderDetail, itemRequest);
-            orderDetail.addOrderDetailItem(item); // ← amount tự động được sync trong helper method
-        }
-
-        OrderDetail savedOrderDetail = orderDetailRepository.save(orderDetail);
-        log.info("Updated order detail {} - New amount: {}, Total items: {}",
-                orderDetailId, savedOrderDetail.getAmount(), request.getItems().size());
-
-        return mapToOrderDetailResponse(savedOrderDetail);
-    }
 
     // 12. LẤY ORDERS PENDING THEO STORE ID
     public List<OrderResponse> getAllOrdersWithPendingStatusByStoreId(String storeId) {
@@ -226,9 +186,7 @@ public class OrderService {
 
     // ==================== HELPER METHODS ====================
 
-    private boolean canUpdateOrderDetail(OrderStatus status) {
-        return status == OrderStatus.PENDING || status == OrderStatus.IN_PROGRESS;
-    }
+
 
     private OrderDetail buildOrderDetail(Order order, OrderDetailRequest request) {
         String orderDetailId = IdGeneratorUtil.generateOrderDetailId();
@@ -279,23 +237,6 @@ public class OrderService {
                 .build();
     }
 
-    private OrderDetailResponse mapToOrderDetailResponse(OrderDetail orderDetail) {
-        return OrderDetailResponse.builder()
-                .orderDetailId(orderDetail.getOrderDetailId())
-                .amount(orderDetail.getAmount())
-                .items(orderDetail.getOrderDetailItems().stream()
-                        .map(this::mapToOrderDetailItemResponse)
-                        .collect(Collectors.toList()))
-                .build();
-    }
 
-    private OrderDetailItemResponse mapToOrderDetailItemResponse(OrderDetailItem item) {
-        return OrderDetailItemResponse.builder()
-                .centralFoodId(item.getCentralFoodId())
-                .foodName(item.getFoodName())
-                .quantity(item.getQuantity())
-                .unitPrice(item.getUnitPrice())
-                .totalAmount(item.getTotalAmount())
-                .build();
-    }
+
 }
