@@ -1,6 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.FoodItem;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,9 +21,11 @@ public class OrderDetailItem {
     @Column(name = "order_detail_item_id")
     private String orderDetailItemId;
 
-    @Column(name = "food_item")
-    @Enumerated(EnumType.STRING)
-    private FoodItem foodItem;
+    @Column(name = "central_food_id")
+    private String centralFoodId;
+
+    @Column(name = "food_name")
+    private String foodName;
 
     @Column(name = "quantity")
     private Integer quantity;

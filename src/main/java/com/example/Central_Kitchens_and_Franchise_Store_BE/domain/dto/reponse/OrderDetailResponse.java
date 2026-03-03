@@ -16,6 +16,5 @@ public class OrderDetailResponse {
 
     private String orderDetailId;
     private BigDecimal amount;
-    private String note;
     private List<OrderDetailItemResponse> items;
 }

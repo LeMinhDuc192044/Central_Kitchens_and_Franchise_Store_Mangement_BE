@@ -70,24 +70,7 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-//    //  CẬP NHẬT ORDER
-//    @PutMapping("/{orderId}")
-//    @Operation(summary = "Update order")
-//    public ResponseEntity<OrderResponse> updateOrder(@Valid
-//            @PathVariable String orderId,
-//            @RequestBody OrderRequest request) {
-//        OrderResponse response = orderService.updateOrder(orderId, request);
-//        return ResponseEntity.ok(response);
-//    }
 
-//    //  XÓA ORDER - DELETE /api/orders/{orderId}
-//    @DeleteMapping("/{orderId}")
-//    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
-//    @Operation(summary = "Delete order")
-//    public ResponseEntity<Void> deleteOrder(@PathVariable String orderId) {
-//        orderService.deleteOrder(orderId);
-//        return ResponseEntity.noContent().build();  // Status 204 NO CONTENT
-//    }
 
 
     //5. Update order's status
@@ -152,71 +135,6 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    //8. GET ORDER DETAIL Item BY OrderDetailID
-    @GetMapping("/order-details/{orderDetailId}")
-    @Operation(
-            summary = "Get all order detail items by order detail ID"
-    )
-    public ResponseEntity<OrderDetailResponse> getOrderDetailById(
-            @PathVariable String orderDetailId) {
-        OrderDetailResponse response = orderService.getOrderDetailById(orderDetailId);
-        return ResponseEntity.ok(response);
-    }
-
-    // 9. GET ALL ORDER DETAILS BY ORDER ID
-    @GetMapping("/{orderId}/order-details")
-    @Operation(
-            summary = "Get all order details by order ID",
-            description = "Retrieve all order details for a specific order. Example: GET /orders/ORD013/order-details"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Successfully retrieved order details",
-                    content = @Content(schema = @Schema(implementation = OrderDetailResponse.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Order not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
-    public ResponseEntity<List<OrderDetailResponse>> getAllOrderDetailsByOrderId(
-            @PathVariable String orderId) {
-        List<OrderDetailResponse> responses = orderService.getAllOrderDetailsByOrderId(orderId);
-        return ResponseEntity.ok(responses);
-    }
-
-    // 10. UPDATE ORDER DETAIL BY ORDER DETAIL ID
-    @PutMapping("/order-details/{orderDetailId}")
-    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
-    @Operation(
-            summary = "Update order detail by order detail ID",
-            description = "Update order detail including note and items list. This will replace all existing items. Only allowed for PENDING or IN_PROGRESS orders."
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Order detail updated successfully",
-                    content = @Content(schema = @Schema(implementation = OrderDetailResponse.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Order detail not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid request or order status doesn't allow update",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
-    public ResponseEntity<OrderDetailResponse> updateOrderDetail(
-            @PathVariable String orderDetailId,
-            @Valid @RequestBody OrderDetailUpdateRequest request) {
-        OrderDetailResponse response = orderService.updateOrderDetail(orderDetailId, request);
-        return ResponseEntity.ok(response);
-    }
     // 11. LẤY ORDERS CÓ STATUS = PENDING THEO STORE ID
     @GetMapping("/store/{storeId}/pending")
     @Operation(

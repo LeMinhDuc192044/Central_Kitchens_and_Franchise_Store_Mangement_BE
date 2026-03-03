@@ -23,22 +23,18 @@ public class OrderDetail {
     private String orderDetailId;
 
     @Column(name = "amount")
-    private BigDecimal amount;
+    private BigDecimal amount;  // ← được tính tự động
 
     @Column(name = "supply_coordinator_id_fk")
     private String supplyCoordinatorId;
 
-    @Column(name = "note", columnDefinition = "TEXT")
-    private String note;
-
-    @Column(name = "store_id_fk")
-    private String storeId;
 
     @Column(name = "order_id_fk")
     private String orderId;
 
-    @ManyToOne
-    @JoinColumn(name = "order_id_fk", referencedColumnName = "order_id", insertable = false, updatable = false)
+    @OneToOne
+    @JoinColumn(name = "order_id_fk", referencedColumnName = "order_id",
+            insertable = false, updatable = false)
     private Order order;
 
     @OneToMany(mappedBy = "orderDetail", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -55,16 +51,19 @@ public class OrderDetail {
     @OneToOne(mappedBy = "orderDetail", cascade = CascadeType.ALL)
     private OrderInvoice orderInvoice;
 
-    // Helper method để thêm OrderDetailItem
+    // ✅ Helper method - tự động sync amount
     public void addOrderDetailItem(OrderDetailItem item) {
         orderDetailItems.add(item);
         item.setOrderDetail(this);
         item.setOrderDetailId(this.orderDetailId);
+        this.amount = calculateTotalAmount(); // sync
     }
 
-    // Helper method để remove OrderDetailItem
-    public void removeOrderDetailItem(OrderDetailItem item) {
-        orderDetailItems.remove(item);
-        item.setOrderDetail(null);
+
+
+    public BigDecimal calculateTotalAmount() {
+        return orderDetailItems.stream()
+                .map(OrderDetailItem::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

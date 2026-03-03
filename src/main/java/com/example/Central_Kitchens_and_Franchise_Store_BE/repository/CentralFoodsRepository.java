@@ -4,8 +4,8 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Centr
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
 import java.util.List;
+import java.time.LocalDate;
 import java.util.Optional;
 
 @Repository
@@ -13,8 +13,9 @@ public interface CentralFoodsRepository extends JpaRepository<CentralFoods, Stri
 
     Optional<CentralFoods> findByFoodName(String foodName);
 
-    // Find by status
+    // Lấy danh sách món theo status (dùng cho dropdown FE)
     List<CentralFoods> findByCentralFoodStatus(String status);
+
     // Find expired foods
     List<CentralFoods> findByExpiryDateBefore(LocalDate date);
 

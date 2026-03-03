@@ -21,6 +21,7 @@ public class OrderResponse {
     private LocalDate orderDate;
     private OrderStatus statusOrder;
     private PaymentOption paymentOption;
+    private String note;
     private String storeId;
 
 }
