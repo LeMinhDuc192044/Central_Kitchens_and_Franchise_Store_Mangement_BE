@@ -28,7 +28,7 @@ public class FranchiseStore {
     private String address;
 
     @Column(name = "dept_status")
-    private String deptStatus;
+    private boolean deptStatus;
 
     @Column(name = "district")
     private String district;
@@ -37,7 +37,7 @@ public class FranchiseStore {
     private String ward;
 
     @Column(name = "revenue")
-    private BigDecimal revenue;
+    private Integer revenue;
 
     @Column(name = "number_of_contact")
     private String numberOfContact;
@@ -61,4 +61,16 @@ public class FranchiseStore {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_id", referencedColumnName = "id")
     private User manager;
+
+    public void assignManager(User user) {
+        this.manager = user;
+        user.setManagedStore(this);
+    }
+
+    public void removeManager() {
+        if (this.manager != null) {
+            this.manager.setManagedStore(null);
+            this.manager = null;
+        }
+    }
 }

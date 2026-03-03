@@ -28,4 +28,6 @@ public class RegisterRequest {
 
     @NotNull(message = "Must have role id")
     private Long idRole;
+
+    private String storeId;
 }
