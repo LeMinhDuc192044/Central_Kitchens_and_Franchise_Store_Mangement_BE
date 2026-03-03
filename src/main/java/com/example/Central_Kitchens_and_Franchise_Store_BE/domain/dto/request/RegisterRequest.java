@@ -18,14 +18,14 @@ public class RegisterRequest {
 
     @NotBlank(message = "Password is required")
     @Size(min = 6, max = 64, message = "Password must be between 8 and 64 characters")
-    @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$",
-            message = "Password must contain uppercase, lowercase, number, and special character"
-    )
+//    @Pattern(
+//            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$",
+//            message = "Password must contain uppercase, lowercase, number, and special character"
+//    )
     private String password;
 
     private String phone;
 
-    @NotBlank(message = "Must have role name")
+    @NotNull(message = "Must have role id")
     private Long idRole;
 }

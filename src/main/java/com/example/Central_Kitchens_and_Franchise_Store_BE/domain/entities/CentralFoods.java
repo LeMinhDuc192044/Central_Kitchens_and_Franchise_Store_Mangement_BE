@@ -1,7 +1,11 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.FoodStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.Positive;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -25,25 +29,40 @@ public class CentralFoods {
     private String foodName;
 
     @Column(name = "amount")
+    @Positive
     private BigDecimal amount;
 
     @Column(name = "expiry_date")
+    @PastOrPresent
     private LocalDate expiryDate;
 
     @Column(name = "manufacturing_date")
+    @PastOrPresent
     private LocalDate manufacturingDate;
 
     @Column(name = "central_food_status")
-    private String centralFoodStatus;
+    @Enumerated(EnumType.STRING)
+    private FoodStatus centralFoodStatus;
 
     @Column(name = "unit_price_food")
-    private BigDecimal unitPriceFood;
+    @Positive
+    private Integer unitPriceFood;
 
-    @Column(name = "recipe_id")
-    private String recipeId;
+    @Column(name = "food_weight")
+    @Positive
+    private Integer weight;
 
-    @Column(name = "central_food_type_id")
-    private String centralFoodTypeId;
+    @Column(name = "food_length")
+    @Positive
+    private Integer length;
+
+    @Column(name = "food_width")
+    @Positive
+    private Integer width;
+
+    @Column(name = "food_height")
+    @Positive
+    private Integer height;
 
     @ManyToOne
     @JoinColumn(name = "recipe_id", referencedColumnName = "recipe_id", insertable = false, updatable = false)

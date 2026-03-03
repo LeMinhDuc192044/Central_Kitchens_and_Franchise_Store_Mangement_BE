@@ -68,6 +68,10 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @OneToOne(mappedBy = "manager", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private FranchiseStore managedStore;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         // Return role as authority with "ROLE_" prefix
