@@ -16,4 +16,6 @@ public class AuthResponse {
     private String fullName;
     private String role;
     private String userId;
+
+    private FranchiseStoreInfo franchiseStoreInfo;
 }

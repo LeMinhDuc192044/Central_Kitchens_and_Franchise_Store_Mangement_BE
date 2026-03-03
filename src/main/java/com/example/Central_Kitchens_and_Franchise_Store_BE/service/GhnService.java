@@ -8,6 +8,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipPaym
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipServiceType;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentInfo;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.GhnMapper;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.RandomGeneratorUtil;
@@ -21,6 +22,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -80,6 +82,9 @@ public class GhnService {
         shipment.setShipmentCodeId(shipment.getClient_order_code()); // Use client_order_code as ID
         shipment.setGhnOrderCode(ghnOrderCode);
         shipment.setOrderDetail(orderDetail); // set order detail
+        shipment.setCreatedAt(LocalDateTime.now());
+        shipment.setUpdatedAt(LocalDateTime.now());
+
         Shipment savedShipment = shipmentRepository.save(shipment);
 
         ShipPaymentType paymentType = null;
@@ -104,6 +109,21 @@ public class GhnService {
         log.info("ShipInvoice created with ID: {}", shipInvoice.getShipInvoiceId());
 
         return ghnResponse;
+    }
+
+
+    //---GET ALL-------------------------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public List<ShipmentInfo> getAllShipments() {
+        log.info("Fetching all shipments with ship invoices");
+
+        // Fetch all shipments with ship invoices eagerly loaded
+        List<Shipment> shipments = shipmentRepository.findAll();
+
+        log.info("Found {} shipments", shipments.size());
+
+        return ghnMapper.convertToDTOList(shipments);
     }
 
     // ─── TRACK ORDER ──────────────────────────────────────────────────────────
