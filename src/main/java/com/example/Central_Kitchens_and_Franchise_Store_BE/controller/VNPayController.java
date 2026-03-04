@@ -72,6 +72,14 @@ public class VNPayController {
         return ResponseEntity.ok(ApiResult.success(vnPayService.getPaymentsByOrderId(orderId)));
     }
 
+    @PostMapping("/monthly/{storeId}/{month}")
+    public ResponseEntity<CreatePaymentResponse> createMonthlyPayment(
+            @PathVariable String storeId,
+            @PathVariable int month,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(vnPayService.createMonthlyPaymentByStore(storeId, month, request));
+    }
+
 
 
 }

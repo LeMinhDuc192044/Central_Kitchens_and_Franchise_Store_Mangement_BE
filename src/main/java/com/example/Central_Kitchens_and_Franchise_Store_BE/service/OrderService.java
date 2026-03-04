@@ -65,10 +65,13 @@ public class OrderService {
         // ✅ Lấy trực tiếp, không cần .get(0)
         String orderDetailId = savedOrder.getOrderDetail().getOrderDetailId();
 
+
+        BigDecimal totalAmount = orderDetail.getAmount();
         OrderInvoice invoice = OrderInvoice.builder()
                 .orderInvoiceId("INV-" + savedOrder.getOrderId())
                 .orderId(orderDetailId)
                 .invoiceStatus("PENDING")
+                .totalAmount(totalAmount)
                 .build();
         orderInvoiceRepository.save(invoice);
 
@@ -149,6 +152,20 @@ public class OrderService {
         updateRequest.setNewStatus(OrderStatus.CANCELLED);
         updateRequest.setNote(reason);
         return updateOrderStatus(orderId, updateRequest);
+    }
+
+    // LẤY ORDER DETAIL THEO ORDER ID
+    @Transactional
+    public OrderDetailResponse getOrderDetailByOrderId(String orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
+
+        OrderDetail orderDetail = order.getOrderDetail();
+        if (orderDetail == null) {
+            throw new EntityNotFoundException("OrderDetail not found for order: " + orderId);
+        }
+
+        return toOrderDetailResponse(orderDetail);
     }
 
 
@@ -237,6 +254,25 @@ public class OrderService {
                 .build();
     }
 
+    private OrderDetailResponse toOrderDetailResponse(OrderDetail orderDetail) {
+        List<OrderDetailItemResponse> items = orderDetail.getOrderDetailItems().stream()
+                .map(item -> (OrderDetailItemResponse) OrderDetailItemResponse.builder()
+                        .centralFoodId(item.getOrderDetailItemId())
+                        .centralFoodId(item.getCentralFoodId())
+                        .foodName(item.getFoodName())
+                        .quantity(item.getQuantity())
+                        .unitPrice(item.getUnitPrice())
+                        .totalAmount(item.getTotalAmount())
+                        .build())
+                .collect(Collectors.toList());
+
+        return OrderDetailResponse.builder()
+                .orderDetailId(orderDetail.getOrderDetailId())
+                .orderId(orderDetail.getOrderId())
+                .amount(orderDetail.getAmount())
+                .items(items)
+                .build();
+    }
 
 
 }

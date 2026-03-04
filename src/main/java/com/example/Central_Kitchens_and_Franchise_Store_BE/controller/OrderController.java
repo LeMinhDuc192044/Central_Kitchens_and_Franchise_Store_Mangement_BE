@@ -64,7 +64,7 @@ public class OrderController {
     // 4. LẤY ORDERS THEO STORE ID
     @GetMapping("/orders/{storeId}")
     @PreAuthorize("hasAnyRole('FRANCHISE_STAFF','SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
-    @Operation(summary = "Get order by store id")
+    @Operation(summary = "Get all orders by store id")
     public ResponseEntity<List<OrderResponse>> getOrdersByStore(@PathVariable String storeId) {
         List<OrderResponse> orders = orderService.getOrdersByStoreId(storeId);
         return ResponseEntity.ok(orders);
@@ -133,6 +133,14 @@ public class OrderController {
             @Valid @RequestBody PriorityUpdateRequest request) {
         OrderResponse response = orderService.updateOrderPriority(orderId, request);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{orderId}/detail")
+    @Operation(
+            summary = "Get order detail by OrderId"
+    )
+    public ResponseEntity<OrderDetailResponse> getOrderDetail(@PathVariable String orderId) {
+        return ResponseEntity.ok(orderService.getOrderDetailByOrderId(orderId));
     }
 
     // 11. LẤY ORDERS CÓ STATUS = PENDING THEO STORE ID

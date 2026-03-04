@@ -75,6 +75,12 @@ public class Payment {
     @Column(name = "order_id_fk")
     private String orderId;
 
+    @Column(name = "store_id")
+    private String storeId;
+
+    @Column(name = "payment_month")
+    private Integer paymentMonth;
+
     @ManyToOne
     @JoinColumn(name = "order_id_fk", referencedColumnName = "order_id", insertable = false, updatable = false)
     private Order order;
