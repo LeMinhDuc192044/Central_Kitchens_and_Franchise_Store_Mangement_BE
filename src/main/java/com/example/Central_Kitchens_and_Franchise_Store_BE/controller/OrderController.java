@@ -206,8 +206,8 @@ public class OrderController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))
             )
     })
-    public ResponseEntity<OrderResponse> confirmOrder(@PathVariable String orderId) {
-        OrderResponse response = orderService.confirmOrder(orderId);
+    public ResponseEntity<OrderResponse> confirmOrder(@PathVariable String orderId,@RequestParam Integer priorityLevel) {
+        OrderResponse response = orderService.confirmOrder(orderId,priorityLevel);
         return ResponseEntity.ok(response);
     }
 

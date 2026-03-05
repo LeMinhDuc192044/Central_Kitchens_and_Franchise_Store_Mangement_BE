@@ -100,6 +100,26 @@ public class OrderService {
     }
 
     // 5. UPDATE ORDER STATUS
+//    @Transactional
+//    public OrderResponse updateOrderStatus(String orderId, OrderUpdateRequest updateRequest) {
+//        Order order = orderRepository.findById(orderId)
+//                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
+//
+//        OrderStatus currentStatus = order.getStatusOrder();
+//        OrderStatus newStatus = updateRequest.getNewStatus();
+//        statusValidator.validateTransition(currentStatus, newStatus);
+//
+//        order.setStatusOrder(newStatus);
+//
+//        if (updateRequest.getNote() != null && !updateRequest.getNote().isEmpty()) {
+//            log.info("Order {} status change note: {}", orderId, updateRequest.getNote());
+//        }
+//
+//        Order savedOrder = orderRepository.save(order);
+//        log.info("Order {} status updated: {} → {}", orderId, currentStatus, newStatus);
+//        return toResponse(savedOrder);
+//    }
+
     @Transactional
     public OrderResponse updateOrderStatus(String orderId, OrderUpdateRequest updateRequest) {
         Order order = orderRepository.findById(orderId)
@@ -107,7 +127,8 @@ public class OrderService {
 
         OrderStatus currentStatus = order.getStatusOrder();
         OrderStatus newStatus = updateRequest.getNewStatus();
-        statusValidator.validateTransition(currentStatus, newStatus);
+
+        // ✅ Bỏ statusValidator.validateTransition(currentStatus, newStatus);
 
         order.setStatusOrder(newStatus);
 
@@ -229,7 +250,7 @@ public class OrderService {
 
     // 14. XÁC NHẬN ORDER
     @Transactional
-    public OrderResponse confirmOrder(String orderId) {
+    public OrderResponse confirmOrder(String orderId, Integer priorityLevel) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
 
@@ -238,9 +259,16 @@ public class OrderService {
                     "Cannot confirm order. Current status is: " + order.getStatusOrder());
         }
 
+        // ✅ Validate priority (1, 2, 3)
+        if (priorityLevel == null || priorityLevel < 1 || priorityLevel > 3) {
+            throw new IllegalArgumentException("Priority level must be 1 (HIGH), 2 (MEDIUM), or 3 (LOW)");
+        }
+
         order.setStatusOrder(OrderStatus.IN_PROGRESS);
+        order.setPriorityLevel(priorityLevel);
+
         Order savedOrder = orderRepository.save(order);
-        log.info("Order {} confirmed: PENDING → IN_PROGRESS", orderId);
+        log.info("Order {} confirmed: PENDING → IN_PROGRESS, priority set to {}", orderId, priorityLevel);
         return toResponse(savedOrder);
     }
 
