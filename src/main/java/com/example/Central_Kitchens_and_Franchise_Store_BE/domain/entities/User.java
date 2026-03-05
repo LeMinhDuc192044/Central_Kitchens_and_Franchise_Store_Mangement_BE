@@ -2,6 +2,7 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.Fetch;
@@ -35,7 +36,8 @@ public class User implements UserDetails {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(unique = true, nullable = false)
+    @Column(unique = true,nullable = false)
+    @Email
     private String email;
 
     @Column(nullable = false)

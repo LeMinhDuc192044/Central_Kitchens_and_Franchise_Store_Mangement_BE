@@ -42,7 +42,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/auth/login",
                                 "/auth/create",
-                                "/auth/refresh"
+                                "/auth/refresh",
+                                "/webhook/**"
                         ).permitAll()
                         // Public endpoints - Swagger/OpenAPI
                         .requestMatchers(
@@ -60,7 +61,6 @@ public class SecurityConfig {
                                 "/payment/vnpay-ipn",
                                 "/central_foods/**",
                                 "/delivery/**"
-
                         ).permitAll()
                         // All other API endpoints require authentication (handled by @PreAuthorize in controllers)
                         .anyRequest().authenticated()

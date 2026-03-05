@@ -1,12 +1,16 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.AuthResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.FranchiseStoreInfo;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.AuthRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.RegisterRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStore;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Role;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.User;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.UserRole;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.AuthenticationException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStoreRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RoleRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.UserRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.JwtUtils;
@@ -26,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final FranchiseStoreRepository franchiseStoreRepository;  // ✅ Add this
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
@@ -48,6 +53,25 @@ public class AuthService {
 //        UserRole userRole = UserRole.valueOf(request.getRoleName());
 //        Role role = roleRepository.findByName(userRole)
 //                .orElseThrow(() -> new RuntimeException("Role not found: " + request.getRoleName()));
+        FranchiseStoreInfo franchiseStoreInfo = null;
+        FranchiseStore store = null;
+        if (role.getName() == UserRole.FRANCHISE_STAFF) {
+            if (request.getIdRole() == null || request.getStoreId().isEmpty()) {
+                throw new AuthenticationException("Store ID is required for Franchise Staff registration");
+            }
+
+            // Check if store exists
+            store = franchiseStoreRepository.findById(request.getStoreId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Franchise store not found: " + request.getStoreId()));
+
+
+            // Check if store already has a manager
+            if (store.getManager() != null) {
+                throw new AuthenticationException("This store already has a manager: " + store.getManager().getFullName());
+            }
+
+        }
+
 
 
         // Create new user
@@ -60,6 +84,12 @@ public class AuthService {
                 .active(true)
                 .build();
         userRepository.save(user);
+
+        if (store != null) {
+            store.assignManager(user);
+            franchiseStoreRepository.save(store);
+            franchiseStoreInfo = toInfo(store);
+        }
 
 
         String jwtToken = jwtUtils.generateToken(user);
@@ -74,6 +104,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole().getName().name())
+                .franchiseStoreInfo(franchiseStoreInfo)   // ✅ NOW IT WORKS
                 .userId(user.getId())
                 .build();
     }
@@ -100,6 +131,13 @@ public class AuthService {
             throw new AuthenticationException("Account is deactivated");
         }
 
+        FranchiseStoreInfo franchiseStoreInfo = null;
+        if (user.getRole().getName().equals(UserRole.FRANCHISE_STAFF))
+        {
+            franchiseStoreInfo = toInfo(user.getManagedStore());
+        }
+
+
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
         String token = jwtUtils.generateToken(userDetails);
         String refreshToken = jwtUtils.generateRefreshToken(userDetails);
@@ -116,6 +154,7 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .role(user.getRole().getName().name())
                 .userId(user.getId())
+                .franchiseStoreInfo(franchiseStoreInfo)
                 .build();
     }
 
@@ -140,6 +179,23 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .role(user.getRole().getName().name())
                 .userId(user.getId())
+                .build();
+    }
+
+    public static FranchiseStoreInfo toInfo(FranchiseStore store) {
+        if (store == null) {
+            return null;
+        }
+
+        return FranchiseStoreInfo.builder()
+                .storeId(store.getStoreId())
+                .storeName(store.getStoreName())
+                .address(store.getAddress())
+                .deptStatus(store.isDeptStatus())
+                .district(store.getDistrict())
+                .ward(store.getWard())
+                .revenue(store.getRevenue())
+                .numberOfContact(store.getNumberOfContact())
                 .build();
     }
 

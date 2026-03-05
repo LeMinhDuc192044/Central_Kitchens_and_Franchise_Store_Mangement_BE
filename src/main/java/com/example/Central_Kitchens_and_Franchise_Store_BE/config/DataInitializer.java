@@ -1,9 +1,11 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.config;
 
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStore;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Role;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.User;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.UserRole;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStoreRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RoleRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.UserRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.TokenService;
@@ -25,6 +27,7 @@ public class DataInitializer {
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
+    private final FranchiseStoreRepository franchiseStoreRepository;
 
     @Bean
     CommandLineRunner initTestUser() {
@@ -38,40 +41,89 @@ public class DataInitializer {
             createRoleIfNotExists(UserRole.FRANCHISE_STAFF);
 
 
+            // Store 1 - District 1
+
+
             createUserIfNotExists(
-                    "admin@test.com",
-                    "Admin Test User",
-                    "0900000001",
+                    "admin@centralkitchen.com",
+                    "System Administrator",
+                    "0901234567",
                     UserRole.ADMIN
             );
 
+            // MANAGERS
             createUserIfNotExists(
-                    "manager@test.com",
-                    "Manager Test User",
-                    "0900000001",
+                    "manager@centralkitchen.com",
+                    "Operations Manager",
+                    "0902345678",
                     UserRole.MANAGER
             );
 
             createUserIfNotExists(
-                    "staffFrachise@test.com",
-                    "Franchise staff Test User",
-                    "0900000002",
+                    "supply@centralkitchen.com",
+                    "Supply Coordinator",
+                    "0905678901",
+                    UserRole.SUPPLY_COORDINATOR
+            );
+
+            createUserIfNotExists(
+                    "kitchen@centralkitchen.com",
+                    "Head Chef",
+                    "0904567890",
+                    UserRole.CENTRAL_KITCHEN_STAFF
+            );
+
+            // FRANCHISE STAFF (Store Managers)
+            createUserIfNotExists(
+                    "store1.manager@centralkitchen.com",
+                    "District 1 Store Manager",
+                    "0903456790",
                     UserRole.FRANCHISE_STAFF
             );
 
             createUserIfNotExists(
-                    "centralKitchenStaff@test.com",
-                    "Central Kitchen Staff",
-                    "09000000312",
-                    UserRole.CENTRAL_KITCHEN_STAFF
+                    "store2.manager@centralkitchen.com",
+                    "District 2 Store Manager",
+                    "0903456791",
+                    UserRole.FRANCHISE_STAFF
             );
 
             createUserIfNotExists(
-                    "supplyCoordinator@test.com",
-                    "SUPPLY COORDINATOR",
-                    "09000000321",
-                    UserRole.SUPPLY_COORDINATOR
+                    "store3.manager@centralkitchen.com",
+                    "District 3 Store Manager",
+                    "0903456792",
+                    UserRole.FRANCHISE_STAFF
             );
+
+            createStoreIfNotExists(
+                    "STORE-D1-001",
+                    "Central Kitchen District 1",
+                    "123 Nguyen Hue St, District 1",
+                    "District 1",
+                    "Ben Nghe Ward",
+                    "store1.manager@centralkitchen.com"
+            );
+
+            // Store 2 - District 2
+            createStoreIfNotExists(
+                    "STORE-D2-001",
+                    "Central Kitchen District 2",
+                    "456 Tran Nao St, District 2",
+                    "District 2",
+                    "An Khanh Ward",
+                    "store2.manager@centralkitchen.com"
+            );
+
+            // Store 3 - District 3
+            createStoreIfNotExists(
+                    "STORE-D3-001",
+                    "Central Kitchen District 3",
+                    "789 Vo Van Tan St, District 3",
+                    "District 3",
+                    "Ward 6",
+                    "store3.manager@centralkitchen.com"
+            );
+
         };
     }
 
@@ -84,18 +136,47 @@ public class DataInitializer {
                 ));
     }
 
+
+    private void createStoreIfNotExists(
+            String storeId,
+            String storeName,
+            String address,
+            String district,
+            String ward,
+            String managerEmail
+    ) {
+
+        User manager = userRepository.findByEmail(managerEmail)
+                .orElseThrow(() -> new RuntimeException("Manager not found: " + managerEmail));
+
+        FranchiseStore store = FranchiseStore.builder()
+                .storeId(storeId)
+                .storeName(storeName)
+                .address(address)
+                .district(district)
+                .ward(ward)
+                .revenue(0)
+                .deptStatus(true)
+                .numberOfContact(manager.getPhone())
+                .build();
+
+        // ✅ Assign manager to store
+        store.assignManager(manager);
+
+        franchiseStoreRepository.save(store);
+    }
     private void createUserIfNotExists(
             String email,
             String fullName,
             String phone,
             UserRole roleName
     ) {
-        if (userRepository.existsByEmail(email)) return;
+        if (userRepository.existsByEmail(email)) {
+            return;
+        }
 
         Role role = roleRepository.findByName(roleName)
                 .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
-
-
 
         User user = User.builder()
                 .fullName(fullName)
@@ -108,10 +189,6 @@ public class DataInitializer {
                 .build();
 
         userRepository.save(user);
-
-        String token = jwtUtils.generateToken(user);
-        String refreshToken = jwtUtils.generateRefreshToken(user);
-        tokenService.saveUserToken(user, token, refreshToken);
     }
 }
 
