@@ -10,6 +10,8 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetailItem;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderInvoice;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderDetailRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderInvoiceRepository;
@@ -51,6 +53,8 @@ public class OrderService {
                 .orderId(orderId)
                 .statusOrder(OrderStatus.PENDING)
                 .paymentOption(request.getPaymentOption())
+                .paymentMethod(request.getPaymentMethod())   // ← thêm dòng này
+                .paymentStatus(PaymentStatus.PENDING)
                 .storeId(request.getStoreId())
                 .orderDate(LocalDate.now())
                 .note(request.getNote())
@@ -154,7 +158,7 @@ public class OrderService {
         return updateOrderStatus(orderId, updateRequest);
     }
 
-    // LẤY ORDER DETAIL THEO ORDER ID
+    // 9.LẤY ORDER DETAIL THEO ORDER ID
     @Transactional
     public OrderDetailResponse getOrderDetailByOrderId(String orderId) {
         Order order = orderRepository.findById(orderId)
@@ -166,6 +170,45 @@ public class OrderService {
         }
 
         return toOrderDetailResponse(orderDetail);
+    }
+
+    // 10.✅ CASH: chuyển payment status → SUCCESS ngay lập tức
+    @Transactional
+    public OrderResponse payByCash(String orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
+
+        if (order.getPaymentMethod() != PaymentMethod.CASH) {
+            throw new IllegalStateException(
+                    "Đơn hàng này không dùng phương thức CASH. Phương thức hiện tại: "
+                            + order.getPaymentMethod());
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            throw new IllegalStateException("Đơn hàng này đã được thanh toán rồi");
+        }
+
+        order.setPaymentStatus(PaymentStatus.SUCCESS);
+        Order saved = orderRepository.save(order);
+        log.info("Order {} paid by CASH → payment status: SUCCESS", orderId);
+        return toResponse(saved);
+    }
+
+    // 11.✅ Đổi PaymentMethod (chỉ cho phép đổi khi chưa thanh toán)
+    @Transactional
+    public OrderResponse changePaymentMethod(String orderId, PaymentMethod newMethod) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
+
+        if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            throw new IllegalStateException("Không thể đổi phương thức thanh toán vì đơn đã được thanh toán");
+        }
+
+        PaymentMethod oldMethod = order.getPaymentMethod();
+        order.setPaymentMethod(newMethod);
+        Order saved = orderRepository.save(order);
+        log.info("Order {} payment method changed: {} → {}", orderId, oldMethod, newMethod);
+        return toResponse(saved);
     }
 
 
@@ -247,6 +290,8 @@ public class OrderService {
                 .orderId(order.getOrderId())
                 .priorityLevel(order.getPriorityLevel())
                 .paymentOption(order.getPaymentOption())
+                .paymentMethod(order.getPaymentMethod())   // ← thêm
+                .paymentStatus(order.getPaymentStatus())
                 .orderDate(order.getOrderDate())
                 .statusOrder(order.getStatusOrder())
                 .storeId(order.getStoreId())

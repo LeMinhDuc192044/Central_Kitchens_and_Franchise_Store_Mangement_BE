@@ -8,6 +8,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetail;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Payment;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.PaymentRecord;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderInvoiceRepository;
@@ -54,6 +55,13 @@ public class VNPayService {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
+
+        // ✅ Chỉ CREDIT mới được tạo VNPay URL
+        if (order.getPaymentMethod() != PaymentMethod.CREDIT) {
+            throw new RuntimeException(
+                    "Đơn hàng " + orderId + " dùng phương thức " + order.getPaymentMethod()
+                            + ". Chỉ CREDIT mới được thanh toán qua VNPay.");
+        }
 
         if (!PaymentOption.PAY_AFTER_ORDER.equals(order.getPaymentOption())) {
             throw new RuntimeException(
