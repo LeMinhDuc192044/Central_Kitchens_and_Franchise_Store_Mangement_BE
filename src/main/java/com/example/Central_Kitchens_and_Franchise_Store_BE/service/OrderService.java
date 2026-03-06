@@ -133,6 +133,7 @@ public class OrderService {
         order.setStatusOrder(newStatus);
 
         if (updateRequest.getNote() != null && !updateRequest.getNote().isEmpty()) {
+            order.setNote(updateRequest.getNote());
             log.info("Order {} status change note: {}", orderId, updateRequest.getNote());
         }
 

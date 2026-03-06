@@ -342,6 +342,15 @@ public class VNPayService {
                 log.info("Invoice updated to PAID for orderId: {}", orderId);
             });
             // ─────────────────────────────────────────────────────
+            // ✅ THÊM: Cập nhật paymentStatus trên Order
+            if (orderId != null) {
+                orderRepository.findById(orderId).ifPresent(order -> {
+                    order.setPaymentStatus(PaymentStatus.SUCCESS);
+                    orderRepository.save(order);
+                    log.info("Order paymentStatus updated to SUCCESS for orderId: {}", orderId);
+                });
+            }
+            // ─────────────────────────────────────────────────────
         } else {
             payment.setStatus(PaymentStatus.FAILED);
         }
