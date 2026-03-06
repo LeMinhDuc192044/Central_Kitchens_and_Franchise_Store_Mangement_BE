@@ -1,9 +1,11 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.ApiResult;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderInvoiceResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderInvoiceService;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -64,7 +66,7 @@ public class OrderController {
     // 4. LẤY ORDERS THEO STORE ID
     @GetMapping("/orders/{storeId}")
     @PreAuthorize("hasAnyRole('FRANCHISE_STAFF','SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
-    @Operation(summary = "Get order by store id")
+    @Operation(summary = "Get all orders by store id")
     public ResponseEntity<List<OrderResponse>> getOrdersByStore(@PathVariable String storeId) {
         List<OrderResponse> orders = orderService.getOrdersByStoreId(storeId);
         return ResponseEntity.ok(orders);
@@ -135,6 +137,14 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{orderId}/detail")
+    @Operation(
+            summary = "Get order detail by OrderId"
+    )
+    public ResponseEntity<OrderDetailResponse> getOrderDetail(@PathVariable String orderId) {
+        return ResponseEntity.ok(orderService.getOrderDetailByOrderId(orderId));
+    }
+
     // 11. LẤY ORDERS CÓ STATUS = PENDING THEO STORE ID
     @GetMapping("/store/{storeId}/pending")
     @Operation(
@@ -196,12 +206,12 @@ public class OrderController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))
             )
     })
-    public ResponseEntity<OrderResponse> confirmOrder(@PathVariable String orderId) {
-        OrderResponse response = orderService.confirmOrder(orderId);
+    public ResponseEntity<OrderResponse> confirmOrder(@PathVariable String orderId,@RequestParam Integer priorityLevel) {
+        OrderResponse response = orderService.confirmOrder(orderId,priorityLevel);
         return ResponseEntity.ok(response);
     }
 
-    // ── GET Invoice theo OrderID ────────────────────────────────────────────────
+    // ── GET Invoice theo OrderID
     @GetMapping("/{orderId}/invoice")
     @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(
@@ -217,6 +227,25 @@ public class OrderController {
     public ResponseEntity<OrderInvoiceResponse> getInvoiceByOrderId(@PathVariable String orderId) {
         OrderInvoiceResponse response = orderInvoiceService.getInvoiceByOrderId(orderId);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/cash/{orderId}")
+    @Operation(summary = "Pay by cash - auto set payment status to SUCCESS")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResult<OrderResponse>> payByCash(@PathVariable String orderId) {
+        return ResponseEntity.ok(ApiResult.success("Thanh toán tiền mặt thành công",
+                orderService.payByCash(orderId)));
+    }
+
+
+    @PatchMapping("/change-method/{orderId}")
+    @Operation(summary = "Change payment method (CASH/CREDIT) - only if not paid yet")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResult<OrderResponse>> changePaymentMethod(
+            @PathVariable String orderId,
+            @RequestParam PaymentMethod newMethod) {
+        return ResponseEntity.ok(ApiResult.success("Đổi phương thức thanh toán thành công",
+                orderService.changePaymentMethod(orderId, newMethod)));
     }
 
 

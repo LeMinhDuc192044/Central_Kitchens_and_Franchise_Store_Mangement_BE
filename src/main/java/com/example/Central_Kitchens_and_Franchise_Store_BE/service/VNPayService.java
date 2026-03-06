@@ -8,6 +8,8 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetail;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Payment;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.PaymentRecord;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderInvoiceRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
@@ -53,6 +55,20 @@ public class VNPayService {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
+
+        // ✅ Chỉ CREDIT mới được tạo VNPay URL
+        if (order.getPaymentMethod() != PaymentMethod.CREDIT) {
+            throw new RuntimeException(
+                    "Đơn hàng " + orderId + " dùng phương thức " + order.getPaymentMethod()
+                            + ". Chỉ CREDIT mới được thanh toán qua VNPay.");
+        }
+
+        if (!PaymentOption.PAY_AFTER_ORDER.equals(order.getPaymentOption())) {
+            throw new RuntimeException(
+                    "Đơn hàng " + orderId + " không hỗ trợ thanh toán ngay. " +
+                            "Hình thức thanh toán hiện tại: " + order.getPaymentOption()
+            );
+        }
 
         OrderDetail orderDetail = order.getOrderDetail();
         if (orderDetail == null || orderDetail.getAmount() == null) {
@@ -115,8 +131,10 @@ public class VNPayService {
                 .txnRef(txnRef)
                 .paymentUrl(paymentUrl)
                 .amount(totalAmount)
+                .orderIds(List.of(orderId))
                 .build();
     }
+
 
     public List<PaymentResponse> getAllPayments(String status) {
         return paymentRepository.findAll().stream()
@@ -138,6 +156,118 @@ public class VNPayService {
                         .orderId(p.getOrderId())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public CreatePaymentResponse createMonthlyPaymentByStore(
+            String storeId, int month, HttpServletRequest httpRequest) {
+
+        int year = LocalDate.now().getYear();
+
+        LocalDate startOfMonth = LocalDate.of(year, month, 1);
+        LocalDate endOfMonth = startOfMonth.withDayOfMonth(startOfMonth.lengthOfMonth());
+
+        List<Order> orders = orderRepository
+                .findByStoreIdAndOrderDateBetween(storeId, startOfMonth, endOfMonth);
+
+        if (orders.isEmpty()) {
+            throw new RuntimeException("Không có đơn hàng nào trong tháng " + month + " của store: " + storeId);
+        }
+
+        // ✅ Chỉ lấy order có PaymentOption = PAY_AT_THE_END_OF_MONTH
+        List<Order> eligibleOrders = orders.stream()
+                .filter(o -> PaymentOption.PAY_AT_THE_END_OF_MONTH.equals(o.getPaymentOption()))
+                .collect(Collectors.toList());
+
+        if (eligibleOrders.isEmpty()) {
+            throw new RuntimeException("Không có đơn hàng nào có hình thức PAY_AT_THE_END_OF_MONTH trong tháng " + month);
+        }
+
+        // ✅ Lọc unpaidOrders từ eligibleOrders (không phải orders)
+        List<Order> unpaidOrders = eligibleOrders.stream()
+                .filter(o -> {
+                    List<Payment> payments = paymentRepository.findByOrderId(o.getOrderId());
+                    return payments.stream()
+                            .noneMatch(p -> PaymentStatus.SUCCESS.equals(p.getStatus()));
+                })
+                .collect(Collectors.toList());
+
+        if (unpaidOrders.isEmpty()) {
+            throw new RuntimeException("Tất cả đơn hàng tháng " + month + " của store " + storeId + " đã được thanh toán");
+        }
+
+        // Tổng amount
+        Long totalAmount = unpaidOrders.stream()
+                .mapToLong(o -> o.getOrderDetail().getAmount().longValue())
+                .sum();
+
+        if (totalAmount <= 0) {
+            throw new RuntimeException("Tổng giá trị đơn hàng không hợp lệ");
+        }
+
+        // ✅ Gom danh sách orderId
+        List<String> orderIdList = unpaidOrders.stream()
+                .map(Order::getOrderId)
+                .collect(Collectors.toList());
+
+        String orderIdsLog = String.join(",", orderIdList);
+
+        String txnRef = VNPayUtil.generateTxnRef();
+        String ipAddress = VNPayUtil.getIpAddress(httpRequest);
+        long amountInVNPay = totalAmount * 100;
+
+        Map<String, String> vnpParams = new HashMap<>();
+        vnpParams.put("vnp_Version", vnPayProperties.getVersion());
+        vnpParams.put("vnp_Command", vnPayProperties.getCommand());
+        vnpParams.put("vnp_TmnCode", vnPayProperties.getTmnCode());
+        vnpParams.put("vnp_Amount", String.valueOf(amountInVNPay));
+        vnpParams.put("vnp_CurrCode", vnPayProperties.getCurrencyCode());
+        vnpParams.put("vnp_TxnRef", txnRef);
+        vnpParams.put("vnp_OrderInfo", "Thanh toan thang " + month + " store " + storeId);
+        vnpParams.put("vnp_OrderType", "other");
+        vnpParams.put("vnp_Locale", "vn");
+        vnpParams.put("vnp_ReturnUrl", vnPayProperties.getReturnUrl());
+        vnpParams.put("vnp_IpAddr", ipAddress);
+        vnpParams.put("vnp_CreateDate", VNPayUtil.getCurrentDateTime());
+        vnpParams.put("vnp_ExpireDate", VNPayUtil.getExpireDateTime(15));
+        vnpParams.put("vnp_BankCode", "NCB");
+
+        String hashData = VNPayUtil.buildHashData(vnpParams);
+        String secureHash = VNPayUtil.hmacSHA512(vnPayProperties.getHashSecret(), hashData);
+        vnpParams.put("vnp_SecureHash", secureHash);
+
+        String queryString = VNPayUtil.buildQueryString(vnpParams);
+        String paymentUrl = vnPayProperties.getUrl() + "?" + queryString;
+
+        // Lưu Payment
+        Payment payment = new Payment();
+        payment.setTxnRef(txnRef);
+        payment.setAmount(totalAmount);
+        payment.setIpAddress(ipAddress);
+        payment.setStoreId(storeId);
+        payment.setPaymentMonth(month);
+        paymentRepository.save(payment);
+
+        // Lưu PaymentRecord cho từng order
+        unpaidOrders.forEach(o -> {
+            PaymentRecord record = PaymentRecord.builder()
+                    .orderId(o.getOrderId())
+                    .txnRef(txnRef)
+                    .amount(totalAmount)
+                    .status("PENDING")
+                    .build();
+            paymentRecordRepository.save(record);
+        });
+
+        log.info("Tạo monthly payment: storeId={}, month={}, txnRef={}, totalAmount={}, orders={}",
+                storeId, month, txnRef, totalAmount, orderIdsLog);
+
+        return CreatePaymentResponse.builder()
+                .txnRef(txnRef)
+                .paymentUrl(paymentUrl)
+                .amount(totalAmount)
+                .orderIds(orderIdList) // ✅ trả về danh sách orderId được gộp
+                .build();
     }
 
     public List<PaymentResponse> getPaymentsByOrderId(String orderId) {
@@ -219,19 +349,21 @@ public class VNPayService {
         paymentRepository.save(payment);
 
         // Cập nhật PaymentRecord
-        PaymentRecord record = paymentRecordRepository.findByTxnRef(txnRef);
-        if (record != null) {
+        List<PaymentRecord> records = paymentRecordRepository.findAllByTxnRef(txnRef);
+        records.forEach(record -> {
             record.setStatus(payment.getStatus().name());
             record.setResponseCode(responseCode);
             record.setResponseMessage(VNPayResponseCode.getMessage(responseCode));
             paymentRecordRepository.save(record);
-        }
+        });
 
         log.info("VNPay return: txnRef={}, responseCode={}", txnRef, responseCode);
 
         String message = VNPayResponseCode.getMessage(responseCode);
         return buildResult(payment, responseCode, message);
     }
+
+
 
     // ============================================================
     // HELPER METHODS

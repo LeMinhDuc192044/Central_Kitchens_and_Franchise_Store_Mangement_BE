@@ -10,6 +10,8 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetailItem;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderInvoice;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderDetailRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderInvoiceRepository;
@@ -51,6 +53,8 @@ public class OrderService {
                 .orderId(orderId)
                 .statusOrder(OrderStatus.PENDING)
                 .paymentOption(request.getPaymentOption())
+                .paymentMethod(request.getPaymentMethod())   // ← thêm dòng này
+                .paymentStatus(PaymentStatus.PENDING)
                 .storeId(request.getStoreId())
                 .orderDate(LocalDate.now())
                 .note(request.getNote())
@@ -65,10 +69,13 @@ public class OrderService {
         // ✅ Lấy trực tiếp, không cần .get(0)
         String orderDetailId = savedOrder.getOrderDetail().getOrderDetailId();
 
+
+        BigDecimal totalAmount = orderDetail.getAmount();
         OrderInvoice invoice = OrderInvoice.builder()
                 .orderInvoiceId("INV-" + savedOrder.getOrderId())
                 .orderId(orderDetailId)
                 .invoiceStatus("PENDING")
+                .totalAmount(totalAmount)
                 .build();
         orderInvoiceRepository.save(invoice);
 
@@ -93,6 +100,26 @@ public class OrderService {
     }
 
     // 5. UPDATE ORDER STATUS
+//    @Transactional
+//    public OrderResponse updateOrderStatus(String orderId, OrderUpdateRequest updateRequest) {
+//        Order order = orderRepository.findById(orderId)
+//                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
+//
+//        OrderStatus currentStatus = order.getStatusOrder();
+//        OrderStatus newStatus = updateRequest.getNewStatus();
+//        statusValidator.validateTransition(currentStatus, newStatus);
+//
+//        order.setStatusOrder(newStatus);
+//
+//        if (updateRequest.getNote() != null && !updateRequest.getNote().isEmpty()) {
+//            log.info("Order {} status change note: {}", orderId, updateRequest.getNote());
+//        }
+//
+//        Order savedOrder = orderRepository.save(order);
+//        log.info("Order {} status updated: {} → {}", orderId, currentStatus, newStatus);
+//        return toResponse(savedOrder);
+//    }
+
     @Transactional
     public OrderResponse updateOrderStatus(String orderId, OrderUpdateRequest updateRequest) {
         Order order = orderRepository.findById(orderId)
@@ -100,7 +127,8 @@ public class OrderService {
 
         OrderStatus currentStatus = order.getStatusOrder();
         OrderStatus newStatus = updateRequest.getNewStatus();
-        statusValidator.validateTransition(currentStatus, newStatus);
+
+        // ✅ Bỏ statusValidator.validateTransition(currentStatus, newStatus);
 
         order.setStatusOrder(newStatus);
 
@@ -151,6 +179,59 @@ public class OrderService {
         return updateOrderStatus(orderId, updateRequest);
     }
 
+    // 9.LẤY ORDER DETAIL THEO ORDER ID
+    @Transactional
+    public OrderDetailResponse getOrderDetailByOrderId(String orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
+
+        OrderDetail orderDetail = order.getOrderDetail();
+        if (orderDetail == null) {
+            throw new EntityNotFoundException("OrderDetail not found for order: " + orderId);
+        }
+
+        return toOrderDetailResponse(orderDetail);
+    }
+
+    // 10.✅ CASH: chuyển payment status → SUCCESS ngay lập tức
+    @Transactional
+    public OrderResponse payByCash(String orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
+
+        if (order.getPaymentMethod() != PaymentMethod.CASH) {
+            throw new IllegalStateException(
+                    "Đơn hàng này không dùng phương thức CASH. Phương thức hiện tại: "
+                            + order.getPaymentMethod());
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            throw new IllegalStateException("Đơn hàng này đã được thanh toán rồi");
+        }
+
+        order.setPaymentStatus(PaymentStatus.SUCCESS);
+        Order saved = orderRepository.save(order);
+        log.info("Order {} paid by CASH → payment status: SUCCESS", orderId);
+        return toResponse(saved);
+    }
+
+    // 11.✅ Đổi PaymentMethod (chỉ cho phép đổi khi chưa thanh toán)
+    @Transactional
+    public OrderResponse changePaymentMethod(String orderId, PaymentMethod newMethod) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
+
+        if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            throw new IllegalStateException("Không thể đổi phương thức thanh toán vì đơn đã được thanh toán");
+        }
+
+        PaymentMethod oldMethod = order.getPaymentMethod();
+        order.setPaymentMethod(newMethod);
+        Order saved = orderRepository.save(order);
+        log.info("Order {} payment method changed: {} → {}", orderId, oldMethod, newMethod);
+        return toResponse(saved);
+    }
+
 
 
     // 12. LẤY ORDERS PENDING THEO STORE ID
@@ -169,7 +250,7 @@ public class OrderService {
 
     // 14. XÁC NHẬN ORDER
     @Transactional
-    public OrderResponse confirmOrder(String orderId) {
+    public OrderResponse confirmOrder(String orderId, Integer priorityLevel) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
 
@@ -178,9 +259,16 @@ public class OrderService {
                     "Cannot confirm order. Current status is: " + order.getStatusOrder());
         }
 
+        // ✅ Validate priority (1, 2, 3)
+        if (priorityLevel == null || priorityLevel < 1 || priorityLevel > 3) {
+            throw new IllegalArgumentException("Priority level must be 1 (HIGH), 2 (MEDIUM), or 3 (LOW)");
+        }
+
         order.setStatusOrder(OrderStatus.IN_PROGRESS);
+        order.setPriorityLevel(priorityLevel);
+
         Order savedOrder = orderRepository.save(order);
-        log.info("Order {} confirmed: PENDING → IN_PROGRESS", orderId);
+        log.info("Order {} confirmed: PENDING → IN_PROGRESS, priority set to {}", orderId, priorityLevel);
         return toResponse(savedOrder);
     }
 
@@ -230,6 +318,8 @@ public class OrderService {
                 .orderId(order.getOrderId())
                 .priorityLevel(order.getPriorityLevel())
                 .paymentOption(order.getPaymentOption())
+                .paymentMethod(order.getPaymentMethod())   // ← thêm
+                .paymentStatus(order.getPaymentStatus())
                 .orderDate(order.getOrderDate())
                 .statusOrder(order.getStatusOrder())
                 .storeId(order.getStoreId())
@@ -237,6 +327,25 @@ public class OrderService {
                 .build();
     }
 
+    private OrderDetailResponse toOrderDetailResponse(OrderDetail orderDetail) {
+        List<OrderDetailItemResponse> items = orderDetail.getOrderDetailItems().stream()
+                .map(item -> (OrderDetailItemResponse) OrderDetailItemResponse.builder()
+                        .centralFoodId(item.getOrderDetailItemId())
+                        .centralFoodId(item.getCentralFoodId())
+                        .foodName(item.getFoodName())
+                        .quantity(item.getQuantity())
+                        .unitPrice(item.getUnitPrice())
+                        .totalAmount(item.getTotalAmount())
+                        .build())
+                .collect(Collectors.toList());
+
+        return OrderDetailResponse.builder()
+                .orderDetailId(orderDetail.getOrderDetailId())
+                .orderId(orderDetail.getOrderId())
+                .amount(orderDetail.getAmount())
+                .items(items)
+                .build();
+    }
 
 
 }
