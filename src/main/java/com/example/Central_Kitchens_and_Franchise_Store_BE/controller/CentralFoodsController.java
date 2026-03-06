@@ -41,7 +41,7 @@ public class CentralFoodsController {
     }
 
     @Operation(summary = "Get all food products", description = "Retrieve a list of all food products in the central kitchen")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF', 'SUPPLY_COORDINATOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF', 'SUPPLY_COORDINATOR', 'FRANCHISE_STAFF')")
     @GetMapping
     public ResponseEntity<List<CentralFoodsResponse>> getAllFoods() {
         List<CentralFoodsResponse> foods = centralFoodsService.getAllFoods();
@@ -49,7 +49,7 @@ public class CentralFoodsController {
     }
 
     @Operation(summary = "Get food by ID", description = "Retrieve a specific food product by its ID")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF', 'SUPPLY_COORDINATOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF', 'SUPPLY_COORDINATOR', 'FRANCHISE_STAFF')")
     @GetMapping("/{id}")
     public ResponseEntity<CentralFoodsResponse> getFoodById(
             @Parameter(description = "Food ID", required = true, example = "FOOD001")

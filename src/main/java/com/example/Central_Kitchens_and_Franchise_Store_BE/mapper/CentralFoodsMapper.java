@@ -1,6 +1,8 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.mapper;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.CentralFoodCategoryInfo;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.CentralFoodsResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.RecipeInfo;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsUpdateRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.CentralFoods;
@@ -13,16 +15,39 @@ import java.util.stream.Collectors;
 public class CentralFoodsMapper {
 
     public CentralFoodsResponse convertToDTO(CentralFoods food) {
+
+        RecipeInfo recipeInfo = null;
+
+        if (food.getRecipe() != null) {
+            recipeInfo = RecipeInfo.builder()
+                    .recipeId(food.getRecipe().getRecipeId())
+                    .cookingTime(food.getRecipe().getCookingTime())
+                    .cookingTemperature(food.getRecipe().getCookingTemperature())
+                    .publishedDate(food.getRecipe().getPublishedDate())
+                    .version(food.getRecipe().getVersion())
+                    .materialUsageStandard(food.getRecipe().getMaterialUsageStandard())
+                    .build();
+        }
+
+        CentralFoodCategoryInfo categoryInfo = null;
+
+        if (food.getFoodType() != null) {
+            categoryInfo = CentralFoodCategoryInfo.builder()
+                    .CentralFoodCategoryId(food.getFoodType().getCentralFoodTypeId())
+                    .CentralFoodCategoryName(food.getFoodType().getCentralFoodTypeName())
+                    .build();
+        }
+
         return CentralFoodsResponse.builder()
                 .foodId(food.getCentralFoodId())
                 .foodName(food.getFoodName())
-                .centralFoodType(food.getFoodType())
-                .recipe(food.getRecipe())
+                .centralFoodType(categoryInfo)
+                .recipe(recipeInfo)
                 .amount(food.getAmount())
-                .weight(food.getWeight()) // for order delivery
-                .length(food.getLength()) // for order delivery
-                .width(food.getWidth()) // for order delivery
-                .height(food.getHeight()) // for order delivery
+                .weight(food.getWeight())
+                .length(food.getLength())
+                .width(food.getWidth())
+                .height(food.getHeight())
                 .expiryDate(food.getExpiryDate())
                 .manufacturingDate(food.getManufacturingDate())
                 .centralFoodStatus(food.getCentralFoodStatus())
