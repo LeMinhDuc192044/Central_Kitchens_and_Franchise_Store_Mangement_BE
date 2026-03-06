@@ -3,6 +3,7 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.RequiredNote;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipServiceType;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipmentStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
 import jakarta.persistence.*;
 import lombok.*;
@@ -27,7 +28,11 @@ public class Shipment {
     private String note;
 
     @Column(name = "Ship Status")
-    String shipStatus;
+    @Enumerated(EnumType.STRING)
+    private ShipmentStatus shipStatus;
+
+    @Column(name = "order_detail_id_fk")
+    private String orderDetailId;
 
     @Column(name = "required_note")
     @Enumerated(EnumType.STRING)
