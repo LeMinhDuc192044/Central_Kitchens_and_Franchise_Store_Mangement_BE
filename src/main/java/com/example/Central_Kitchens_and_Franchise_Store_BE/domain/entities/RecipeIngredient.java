@@ -20,6 +20,9 @@ public class RecipeIngredient {
     @Column(name = "ingredient_id")
     private String ingredientId;
 
+    @Column(name = "amount_ingredient")
+    private Double amount;
+
     @ManyToOne
     @JoinColumn(name = "recipe_id", referencedColumnName = "recipe_id", insertable = false, updatable = false)
     private Recipe recipe;

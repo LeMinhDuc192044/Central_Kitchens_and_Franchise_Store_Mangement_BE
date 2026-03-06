@@ -29,6 +29,6 @@ public class CentralFoodsResponse {
     private Integer length;           // cm
     private Integer width;            // cm
     private Integer height;
-    private Recipe recipe;
-    private CentralFoodCategory centralFoodType;
+    private RecipeInfo recipe;
+    private CentralFoodCategoryInfo centralFoodType;
 }
