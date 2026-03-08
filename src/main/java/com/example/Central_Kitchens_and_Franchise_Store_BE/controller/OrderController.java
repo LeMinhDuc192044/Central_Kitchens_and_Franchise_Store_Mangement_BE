@@ -6,6 +6,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderInvoiceService;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -71,8 +72,6 @@ public class OrderController {
         List<OrderResponse> orders = orderService.getOrdersByStoreId(storeId);
         return ResponseEntity.ok(orders);
     }
-
-
 
 
     //5. Update order's status
@@ -248,6 +247,15 @@ public class OrderController {
                 orderService.changePaymentMethod(orderId, newMethod)));
     }
 
+    @PatchMapping("/change-option/{orderId}")
+    @Operation(summary = "Change payment option (PAY_AFTER_ORDER/PAY_AT_THE_END_OF_MONTH) - only if not paid yet")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResult<OrderResponse>> changePaymentOption(
+            @PathVariable String orderId,
+            @RequestParam PaymentOption newOption) {
+        return ResponseEntity.ok(ApiResult.success("Đổi payment option thành công",
+                orderService.changePaymentOption(orderId, newOption)));
+    }
 
 
 }

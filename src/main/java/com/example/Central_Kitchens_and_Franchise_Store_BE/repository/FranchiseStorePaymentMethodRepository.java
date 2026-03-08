@@ -5,10 +5,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
-// FranchiseStorePaymentMethodRepository.java
 @Repository
-public interface FranchiseStorePaymentMethodRepository extends JpaRepository<FranchiseStorePaymentMethod, String> {
+public interface FranchiseStorePaymentMethodRepository
+        extends JpaRepository<FranchiseStorePaymentMethod, String> {
+
     List<FranchiseStorePaymentMethod> findByStoreId(String storeId);
-    boolean existsByStoreIdAndPaymentMethod(String storeId, String paymentMethod);
+
+    Optional<FranchiseStorePaymentMethod> findByStoreIdAndPaymentMethod(
+            String storeId, String paymentMethod);
 }

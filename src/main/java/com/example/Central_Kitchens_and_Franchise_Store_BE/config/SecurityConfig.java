@@ -60,7 +60,8 @@ public class SecurityConfig {
                                 "/payment/vnpay-return",
                                 "/payment/vnpay-ipn",
                                 "/central_foods/**",
-                                "/delivery/**"
+                                "/delivery/**",
+                                "/franchise-stores/**"
                         ).permitAll()
                         // All other API endpoints require authentication (handled by @PreAuthorize in controllers)
                         .anyRequest().authenticated()

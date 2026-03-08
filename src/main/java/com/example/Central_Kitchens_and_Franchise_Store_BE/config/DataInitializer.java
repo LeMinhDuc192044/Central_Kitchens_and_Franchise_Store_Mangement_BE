@@ -1,15 +1,14 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.config;
 
-
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStore;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStorePaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Role;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.User;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.UserRole;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentMethodRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStoreRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RoleRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.UserRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.service.TokenService;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +16,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Configuration
 @RequiredArgsConstructor
@@ -24,25 +24,19 @@ public class DataInitializer {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
-    private final TokenService tokenService;
     private final FranchiseStoreRepository franchiseStoreRepository;
+    private final FranchiseStorePaymentMethodRepository paymentMethodRepository;
 
     @Bean
     CommandLineRunner initTestUser() {
         return args -> {
 
-            // Ensure STAFF role exists
             createRoleIfNotExists(UserRole.ADMIN);
             createRoleIfNotExists(UserRole.SUPPLY_COORDINATOR);
             createRoleIfNotExists(UserRole.CENTRAL_KITCHEN_STAFF);
             createRoleIfNotExists(UserRole.MANAGER);
             createRoleIfNotExists(UserRole.FRANCHISE_STAFF);
-
-
-            // Store 1 - District 1
-
 
             createUserIfNotExists(
                     "admin@centralkitchen.com",
@@ -51,7 +45,6 @@ public class DataInitializer {
                     UserRole.ADMIN
             );
 
-            // MANAGERS
             createUserIfNotExists(
                     "manager@centralkitchen.com",
                     "Operations Manager",
@@ -73,7 +66,6 @@ public class DataInitializer {
                     UserRole.CENTRAL_KITCHEN_STAFF
             );
 
-            // FRANCHISE STAFF (Store Managers)
             createUserIfNotExists(
                     "store1.manager@centralkitchen.com",
                     "District 1 Store Manager",
@@ -95,6 +87,7 @@ public class DataInitializer {
                     UserRole.FRANCHISE_STAFF
             );
 
+            // ── Store 1 - District 1 ──────────────────────────────
             createStoreIfNotExists(
                     "STORE-D1-001",
                     "Central Kitchen District 1",
@@ -103,8 +96,9 @@ public class DataInitializer {
                     "Ben Nghe Ward",
                     "store1.manager@centralkitchen.com"
             );
+            createPaymentMethodIfNotExists("STORE-D1-001", "CREDIT");
 
-            // Store 2 - District 2
+            // ── Store 2 - District 2 ──────────────────────────────
             createStoreIfNotExists(
                     "STORE-D2-001",
                     "Central Kitchen District 2",
@@ -113,8 +107,9 @@ public class DataInitializer {
                     "An Khanh Ward",
                     "store2.manager@centralkitchen.com"
             );
+            createPaymentMethodIfNotExists("STORE-D2-001", "CREDIT");
 
-            // Store 3 - District 3
+            // ── Store 3 - District 3 ──────────────────────────────
             createStoreIfNotExists(
                     "STORE-D3-001",
                     "Central Kitchen District 3",
@@ -123,7 +118,7 @@ public class DataInitializer {
                     "Ward 6",
                     "store3.manager@centralkitchen.com"
             );
-
+            createPaymentMethodIfNotExists("STORE-D3-001", "CREDIT");
         };
     }
 
@@ -136,7 +131,6 @@ public class DataInitializer {
                 ));
     }
 
-
     private void createStoreIfNotExists(
             String storeId,
             String storeName,
@@ -145,6 +139,9 @@ public class DataInitializer {
             String ward,
             String managerEmail
     ) {
+        if (franchiseStoreRepository.existsById(storeId)) {
+            return;
+        }
 
         User manager = userRepository.findByEmail(managerEmail)
                 .orElseThrow(() -> new RuntimeException("Manager not found: " + managerEmail));
@@ -155,16 +152,28 @@ public class DataInitializer {
                 .address(address)
                 .district(district)
                 .ward(ward)
-                .revenue(0)
-                .deptStatus(true)
+                .revenue(10000000)
+                .deptStatus(false)
                 .numberOfContact(manager.getPhone())
                 .build();
 
-        // ✅ Assign manager to store
         store.assignManager(manager);
-
         franchiseStoreRepository.save(store);
     }
+
+    private void createPaymentMethodIfNotExists(String storeId, String method) {
+        boolean exists = paymentMethodRepository
+                .findByStoreIdAndPaymentMethod(storeId, method)
+                .isPresent();
+        if (!exists) {
+            FranchiseStorePaymentMethod pm = new FranchiseStorePaymentMethod();
+            pm.setStorePaymentId(UUID.randomUUID().toString());
+            pm.setStoreId(storeId);
+            pm.setPaymentMethod(method);
+            paymentMethodRepository.save(pm);
+        }
+    }
+
     private void createUserIfNotExists(
             String email,
             String fullName,
@@ -191,7 +200,3 @@ public class DataInitializer {
         userRepository.save(user);
     }
 }
-
-
-
-
