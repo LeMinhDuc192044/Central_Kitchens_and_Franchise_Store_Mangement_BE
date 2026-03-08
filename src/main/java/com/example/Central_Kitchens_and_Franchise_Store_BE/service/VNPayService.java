@@ -4,15 +4,11 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.config.VNPayPropertie
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.CreatePaymentResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentResultResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetail;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Payment;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.PaymentRecord;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderInvoiceRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.PaymentRecordRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.PaymentRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.VNPayResponseCode;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.VNPayUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,6 +34,9 @@ public class VNPayService {
     private final PaymentRepository paymentRepository;
     private final OrderInvoiceRepository orderInvoiceRepository;
     private final OrderRepository orderRepository;
+    private final FranchiseStoreRepository franchiseStoreRepository;
+    private final FranchiseStorePaymentRecordRepository franchisePaymentRecordRepository;
+    private final FranchiseStorePaymentMethodRepository franchisePaymentMethodRepository;
 
     // ============================================================
     // 1. TẠO URL THANH TOÁN
@@ -53,6 +52,20 @@ public class VNPayService {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
+
+        // ✅ Chỉ CREDIT mới được tạo VNPay URL
+        if (order.getPaymentMethod() != PaymentMethod.CREDIT) {
+            throw new RuntimeException(
+                    "Đơn hàng " + orderId + " dùng phương thức " + order.getPaymentMethod()
+                            + ". Chỉ CREDIT mới được thanh toán qua VNPay.");
+        }
+
+        if (!PaymentOption.PAY_AFTER_ORDER.equals(order.getPaymentOption())) {
+            throw new RuntimeException(
+                    "Đơn hàng " + orderId + " không hỗ trợ thanh toán ngay. " +
+                            "Hình thức thanh toán hiện tại: " + order.getPaymentOption()
+            );
+        }
 
         OrderDetail orderDetail = order.getOrderDetail();
         if (orderDetail == null || orderDetail.getAmount() == null) {
@@ -115,50 +128,98 @@ public class VNPayService {
                 .txnRef(txnRef)
                 .paymentUrl(paymentUrl)
                 .amount(totalAmount)
+                .orderIds(List.of(orderId))
                 .build();
     }
 
-    public List<PaymentResponse> getAllPayments(String status) {
-        return paymentRepository.findAll().stream()
-                .filter(p -> status == null || status.isBlank() ||
-                        (p.getStatus() != null && p.getStatus().name().equalsIgnoreCase(status)))
-                .map(p -> PaymentResponse.builder()
-                        .id(p.getPaymentId())
-                        .txnRef(p.getTxnRef())
-                        .amount(p.getAmount())
-                        .status(p.getStatus() != null ? p.getStatus().name() : null)
-                        .responseCode(p.getResponseCode())
-                        .ipAddress(p.getIpAddress())
-                        .bankCode(p.getBankCode())
-                        .bankTranNo(p.getBankTranNo())
-                        .cardType(p.getCardType())
-                        .vnpayTxnNo(p.getVnpayTxnNo())
-                        .paidAt(p.getPaidAt())
-                        .createdAt(p.getCreatedAt())
-                        .orderId(p.getOrderId())
-                        .build())
+
+    @Transactional
+    public CreatePaymentResponse createDebtPaymentByStore(
+            String storeId, HttpServletRequest httpRequest) {
+
+        // ✅ Lấy tất cả payment record của store
+        List<FranchiseStorePaymentRecord> records = franchisePaymentRecordRepository.findByStoreId(storeId);
+
+        // ✅ Check store tồn tại
+        FranchiseStore store = franchiseStoreRepository.findById(storeId)
+                .orElseThrow(() -> new RuntimeException("Store không tồn tại: " + storeId));
+
+        // ✅ Check paymentMethod của store phải là CREDIT
+        List<String> storeMethods = franchisePaymentMethodRepository.findByStoreId(storeId)
+                .stream()
+                .map(FranchiseStorePaymentMethod::getPaymentMethod)
                 .collect(Collectors.toList());
+
+        if (!storeMethods.contains("CREDIT")) {
+            throw new IllegalStateException(
+                    "Store " + storeId + " không hỗ trợ CREDIT. Không thể thanh toán qua VNPay.");
+        }
+
+        // ✅ Check store đang có nợ
+        if (!store.isDeptStatus()) {
+            throw new IllegalStateException("Store " + storeId + " không có nợ cần thanh toán");
+        }
+
+        if (records.isEmpty()) {
+            throw new RuntimeException("Không có bản ghi nợ nào cho store: " + storeId);
+        }
+
+        // ✅ Tính tổng tiền nợ
+        BigDecimal totalDebt = records.stream()
+                .map(FranchiseStorePaymentRecord::getDebtAmount)
+                .filter(amount -> amount != null && amount.compareTo(BigDecimal.ZERO) > 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalDebt.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Store " + storeId + " không có nợ cần thanh toán");
+        }
+
+        Long totalAmount = totalDebt.longValue();
+        String txnRef = VNPayUtil.generateTxnRef();
+        String ipAddress = VNPayUtil.getIpAddress(httpRequest);
+        long amountInVNPay = totalAmount * 100;
+
+        Map<String, String> vnpParams = new HashMap<>();
+        vnpParams.put("vnp_Version", vnPayProperties.getVersion());
+        vnpParams.put("vnp_Command", vnPayProperties.getCommand());
+        vnpParams.put("vnp_TmnCode", vnPayProperties.getTmnCode());
+        vnpParams.put("vnp_Amount", String.valueOf(amountInVNPay));
+        vnpParams.put("vnp_CurrCode", vnPayProperties.getCurrencyCode());
+        vnpParams.put("vnp_TxnRef", txnRef);
+        vnpParams.put("vnp_OrderInfo", "Thanh toan no store " + storeId);
+        vnpParams.put("vnp_OrderType", "other");
+        vnpParams.put("vnp_Locale", "vn");
+        vnpParams.put("vnp_ReturnUrl", vnPayProperties.getReturnUrl());
+        vnpParams.put("vnp_IpAddr", ipAddress);
+        vnpParams.put("vnp_CreateDate", VNPayUtil.getCurrentDateTime());
+        vnpParams.put("vnp_ExpireDate", VNPayUtil.getExpireDateTime(15));
+        vnpParams.put("vnp_BankCode", "NCB");
+
+        String hashData = VNPayUtil.buildHashData(vnpParams);
+        String secureHash = VNPayUtil.hmacSHA512(vnPayProperties.getHashSecret(), hashData);
+        vnpParams.put("vnp_SecureHash", secureHash);
+
+        String queryString = VNPayUtil.buildQueryString(vnpParams);
+        String paymentUrl = vnPayProperties.getUrl() + "?" + queryString;
+
+        // ✅ Lưu Payment
+        Payment payment = new Payment();
+        payment.setTxnRef(txnRef);
+        payment.setAmount(totalAmount);
+        payment.setIpAddress(ipAddress);
+        payment.setStoreId(storeId);
+        paymentRepository.save(payment);
+
+        log.info("Tạo debt payment: storeId={}, txnRef={}, totalDebt={}", storeId, txnRef, totalAmount);
+
+        return CreatePaymentResponse.builder()
+                .txnRef(txnRef)
+                .paymentUrl(paymentUrl)
+                .amount(totalAmount)
+                .orderIds(List.of(storeId))
+                .build();
     }
 
-    public List<PaymentResponse> getPaymentsByOrderId(String orderId) {
-        return paymentRepository.findByOrderId(orderId).stream()
-                .map(p -> PaymentResponse.builder()
-                        .id(p.getPaymentId())
-                        .txnRef(p.getTxnRef())
-                        .amount(p.getAmount())
-                        .status(p.getStatus() != null ? p.getStatus().name() : null)
-                        .responseCode(p.getResponseCode())
-                        .ipAddress(p.getIpAddress())
-                        .bankCode(p.getBankCode())
-                        .bankTranNo(p.getBankTranNo())
-                        .cardType(p.getCardType())
-                        .vnpayTxnNo(p.getVnpayTxnNo())
-                        .paidAt(p.getPaidAt())
-                        .createdAt(p.getCreatedAt())
-                        .orderId(p.getOrderId())
-                        .build())
-                .collect(Collectors.toList());
-    }
 
     @Transactional
     public PaymentResultResponse processVNPayReturn(HttpServletRequest request) {
@@ -201,8 +262,25 @@ public class VNPayService {
             payment.setStatus(PaymentStatus.SUCCESS);
             payment.setPaidAt(LocalDateTime.now());
 
-            // ── Cập nhật invoice ──────────────────────────────────
             String orderId = payment.getOrderId();
+            String storeId = payment.getStoreId(); // ← lấy storeId
+
+            // ── Xử lý debt payment (storeId != null, orderId == null) ────
+            if (storeId != null && orderId == null) {
+                // Xóa toàn bộ payment record nợ của store
+                List<FranchiseStorePaymentRecord> debtRecords =
+                        franchisePaymentRecordRepository.findByStoreId(storeId);
+                franchisePaymentRecordRepository.deleteAll(debtRecords);
+
+                // Reset deptStatus về false
+                franchiseStoreRepository.findById(storeId).ifPresent(store -> {
+                    store.setDeptStatus(false);
+                    franchiseStoreRepository.save(store);
+                    log.info("Store {} debt cleared after payment txnRef={}", storeId, txnRef);
+                });
+            }
+
+            // ── Cập nhật invoice ──────────────────────────────────
             orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
                 invoice.setInvoiceStatus("PAID");
                 invoice.setPaymentType("VNPAY");
@@ -212,6 +290,15 @@ public class VNPayService {
                 log.info("Invoice updated to PAID for orderId: {}", orderId);
             });
             // ─────────────────────────────────────────────────────
+            // ✅ THÊM: Cập nhật paymentStatus trên Order
+            if (orderId != null) {
+                orderRepository.findById(orderId).ifPresent(order -> {
+                    order.setPaymentStatus(PaymentStatus.SUCCESS);
+                    orderRepository.save(order);
+                    log.info("Order paymentStatus updated to SUCCESS for orderId: {}", orderId);
+                });
+            }
+            // ─────────────────────────────────────────────────────
         } else {
             payment.setStatus(PaymentStatus.FAILED);
         }
@@ -219,13 +306,13 @@ public class VNPayService {
         paymentRepository.save(payment);
 
         // Cập nhật PaymentRecord
-        PaymentRecord record = paymentRecordRepository.findByTxnRef(txnRef);
-        if (record != null) {
+        List<PaymentRecord> records = paymentRecordRepository.findAllByTxnRef(txnRef);
+        records.forEach(record -> {
             record.setStatus(payment.getStatus().name());
             record.setResponseCode(responseCode);
             record.setResponseMessage(VNPayResponseCode.getMessage(responseCode));
             paymentRecordRepository.save(record);
-        }
+        });
 
         log.info("VNPay return: txnRef={}, responseCode={}", txnRef, responseCode);
 

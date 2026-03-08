@@ -1,5 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -22,6 +23,9 @@ public class OrderRequest {
     private PaymentOption paymentOption;
 
     private String note;
+
+    @NotNull(message = "Payment method is required")
+    private PaymentMethod paymentMethod; // CASH hoặc CREDIT
 
     @NotNull(message = "Order detail is required")
     @Valid

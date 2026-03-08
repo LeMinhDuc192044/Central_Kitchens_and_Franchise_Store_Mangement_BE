@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -23,6 +24,13 @@ public class FranchiseStorePaymentRecord {
 
     @Column(name = "store_id_fk")
     private String storeId;
+
+    @Column(name = "created_at")
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "status")
+    private String status;
 
     @ManyToOne
     @JoinColumn(name = "store_id_fk", referencedColumnName = "store_id", insertable = false, updatable = false)

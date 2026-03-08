@@ -2,14 +2,17 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderInvoiceResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderInvoice;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.PaymentRecord;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentMethodRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderInvoiceRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.PaymentRecordRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 
 
 @Service
@@ -19,19 +22,21 @@ public class OrderInvoiceService {
 
     private final OrderInvoiceRepository orderInvoiceRepository;
     private final OrderRepository orderRepository;
-    private final FranchiseStorePaymentMethodRepository paymentMethodRepository;
+    private final PaymentRecordRepository paymentRecordRepository;
 
     public OrderInvoiceResponse getInvoiceByOrderId(String orderId) {
         OrderInvoice invoice = orderInvoiceRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found for orderId: " + orderId));
-        return mapToResponse(invoice);
+        return mapToResponse(invoice, orderId); // ← truyền thêm orderId
     }
 
-
-
-    private OrderInvoiceResponse mapToResponse(OrderInvoice invoice) {
-        // Tìm orderId thật qua orderDetailId
+    private OrderInvoiceResponse mapToResponse(OrderInvoice invoice, String orderId) {
         String realOrderId = orderRepository.findOrderIdByOrderDetailId(invoice.getOrderId());
+
+        // ← đổi sang Optional
+        Optional<PaymentRecord> recordOpt = paymentRecordRepository.findByOrderId(orderId);
+        boolean hasPending = recordOpt.isPresent() && "PENDING".equals(recordOpt.get().getStatus());
+        String txnRef = recordOpt.map(PaymentRecord::getTxnRef).orElse(null);
 
         return OrderInvoiceResponse.builder()
                 .orderInvoiceId(invoice.getOrderInvoiceId())
@@ -40,6 +45,8 @@ public class OrderInvoiceService {
                 .totalAmount(invoice.getTotalAmount())
                 .paidDate(invoice.getPaidDate())
                 .orderId(realOrderId)
+                .hasPendingTransaction(hasPending)
+                .txnRef(txnRef)
                 .build();
     }
 }

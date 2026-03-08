@@ -2,12 +2,7 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.ApiResult;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.CreatePaymentResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentResultResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Payment;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.PaymentRecord;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.PaymentRecordRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.PaymentRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.VNPayService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -18,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @Slf4j
 @RestController
@@ -28,8 +22,7 @@ import java.util.List;
 public class VNPayController {
 
     private final VNPayService vnPayService;
-    private final PaymentRecordRepository paymentRecordRepository;
-    private final PaymentRepository paymentRepository;
+
 
     @PostMapping("/create-by-order/{orderId}")
     @Operation(summary = "Create payment by order id, auto calculate total amount")
@@ -55,22 +48,17 @@ public class VNPayController {
         return ResponseEntity.ok(ApiResult.success(vnPayService.getPaymentByTxnRef(txnRef)));
     }
 
-    //get all record
-    @GetMapping("/records")
+
+
+    @PostMapping("/debt/{storeId}")
+    @Operation(summary = "Create link payment for store's total debt ")
     @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
-    @Operation(summary = "Get all payment, filter by status payment")
-    public ResponseEntity<ApiResult<List<PaymentResponse>>> getAllPayments(
-            @RequestParam(required = false) String status) {
-        return ResponseEntity.ok(ApiResult.success(vnPayService.getAllPayments(status)));
+    public ResponseEntity<CreatePaymentResponse> createDebtPayment(
+            @PathVariable String storeId,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(vnPayService.createDebtPaymentByStore(storeId, request));
     }
 
-    @GetMapping("/order/{orderId}")
-    @Operation(summary = "Get payment by order id")
-    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF','SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
-    public ResponseEntity<ApiResult<List<PaymentResponse>>> getPaymentsByOrderId(
-            @PathVariable String orderId) {
-        return ResponseEntity.ok(ApiResult.success(vnPayService.getPaymentsByOrderId(orderId)));
-    }
 
 
 

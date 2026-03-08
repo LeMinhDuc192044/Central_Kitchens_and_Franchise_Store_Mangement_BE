@@ -1,7 +1,9 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -35,6 +37,14 @@ public class Order {
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_option")
     private PaymentOption paymentOption;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method")
+    private PaymentMethod paymentMethod;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status")
+    private PaymentStatus paymentStatus;
 
     @CreationTimestamp
     @Column(name = "order_date")
