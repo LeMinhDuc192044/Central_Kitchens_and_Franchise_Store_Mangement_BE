@@ -4,18 +4,12 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailItemResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.CentralFoods;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Order;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetail;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderDetailItem;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderInvoice;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderDetailRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderInvoiceRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.IdGeneratorUtil;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.OrderIdGenerator;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.OrderStatusValidator;
@@ -28,7 +22,9 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -43,6 +39,8 @@ public class OrderService {
     private final OrderDetailRepository orderDetailRepository;
     private final OrderInvoiceRepository orderInvoiceRepository;
     private final CentralFoodsRepository centralFoodsRepository;
+    private final FranchiseStoreRepository franchiseStoreRepository;
+    private final FranchiseStorePaymentRecordRepository franchiseStorePaymentRecordRepository;
 
     // 1. TẠO ORDER MỚI
     @Transactional
@@ -53,24 +51,22 @@ public class OrderService {
                 .orderId(orderId)
                 .statusOrder(OrderStatus.PENDING)
                 .paymentOption(request.getPaymentOption())
-                .paymentMethod(request.getPaymentMethod())   // ← thêm dòng này
+                .paymentMethod(request.getPaymentMethod())
                 .paymentStatus(PaymentStatus.PENDING)
                 .storeId(request.getStoreId())
                 .orderDate(LocalDate.now())
                 .note(request.getNote())
                 .build();
 
-        // ✅ Chỉ build 1 OrderDetail duy nhất
         OrderDetail orderDetail = buildOrderDetail(order, request.getOrderDetail());
         order.assignOrderDetail(orderDetail);
 
         Order savedOrder = orderRepository.save(order);
 
-        // ✅ Lấy trực tiếp, không cần .get(0)
         String orderDetailId = savedOrder.getOrderDetail().getOrderDetailId();
-
-
         BigDecimal totalAmount = orderDetail.getAmount();
+
+        // ── Invoice ───────────────────────────────────────────────
         OrderInvoice invoice = OrderInvoice.builder()
                 .orderInvoiceId("INV-" + savedOrder.getOrderId())
                 .orderId(orderDetailId)
@@ -78,6 +74,27 @@ public class OrderService {
                 .totalAmount(totalAmount)
                 .build();
         orderInvoiceRepository.save(invoice);
+
+
+        // ── Nếu PAY_AT_THE_END_OF_MONTH → tạo debt record ────────
+        if (PaymentOption.PAY_AT_THE_END_OF_MONTH.equals(request.getPaymentOption())) {
+            FranchiseStorePaymentRecord debtRecord = new FranchiseStorePaymentRecord();
+            debtRecord.setPaymentRecordId(UUID.randomUUID().toString());
+            debtRecord.setStoreId(request.getStoreId());
+            debtRecord.setDebtAmount(totalAmount);
+            debtRecord.setStatus("PENDING");
+            debtRecord.setCreatedAt(LocalDateTime.now());
+            franchiseStorePaymentRecordRepository.save(debtRecord);
+
+            // Cập nhật deptStatus = true cho store
+            franchiseStoreRepository.findById(request.getStoreId()).ifPresent(store -> {
+                store.setDeptStatus(true);
+                franchiseStoreRepository.save(store);
+            });
+
+            log.info("Order {} → debt record created for store {}, amount={}",
+                    orderId, request.getStoreId(), totalAmount);
+        }
 
         log.info("Created order {} with {} item(s)",
                 orderId, request.getOrderDetail().getItems().size());
@@ -133,6 +150,7 @@ public class OrderService {
         order.setStatusOrder(newStatus);
 
         if (updateRequest.getNote() != null && !updateRequest.getNote().isEmpty()) {
+            order.setNote(updateRequest.getNote());
             log.info("Order {} status change note: {}", orderId, updateRequest.getNote());
         }
 
@@ -270,6 +288,82 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
         log.info("Order {} confirmed: PENDING → IN_PROGRESS, priority set to {}", orderId, priorityLevel);
         return toResponse(savedOrder);
+    }
+
+    @Transactional
+    public OrderResponse changePaymentOption(String orderId, PaymentOption newOption) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
+
+        if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            throw new IllegalStateException("Không thể đổi payment option vì đơn đã được thanh toán");
+        }
+
+        PaymentOption oldOption = order.getPaymentOption();
+
+        if (oldOption.equals(newOption)) {
+            throw new IllegalStateException("Payment option mới phải khác option hiện tại: " + oldOption);
+        }
+
+        order.setPaymentOption(newOption);
+
+        // ── Đổi sang PAY_AT_THE_END_OF_MONTH → tạo debt record ──────
+        if (PaymentOption.PAY_AT_THE_END_OF_MONTH.equals(newOption)) {
+            BigDecimal totalAmount = order.getOrderDetail().getAmount();
+
+            FranchiseStorePaymentRecord debtRecord = new FranchiseStorePaymentRecord();
+            debtRecord.setPaymentRecordId(UUID.randomUUID().toString());
+            debtRecord.setStoreId(order.getStoreId());
+            debtRecord.setDebtAmount(totalAmount);
+            debtRecord.setStatus("PENDING");
+            debtRecord.setCreatedAt(LocalDateTime.now());
+            franchiseStorePaymentRecordRepository.save(debtRecord);
+
+            franchiseStoreRepository.findById(order.getStoreId()).ifPresent(store -> {
+                store.setDeptStatus(true);
+                franchiseStoreRepository.save(store);
+            });
+
+            log.info("Order {} → PAY_AT_THE_END_OF_MONTH, debt record created", orderId);
+        }
+
+        // ── Đổi về PAY_AFTER_ORDER → xóa debt record của order này ──
+        if (PaymentOption.PAY_AFTER_ORDER.equals(newOption)
+                && PaymentOption.PAY_AT_THE_END_OF_MONTH.equals(oldOption)) {
+
+            BigDecimal totalAmount = order.getOrderDetail().getAmount();
+
+            // Xóa debt record tương ứng với order này (cùng storeId, cùng amount, status PENDING)
+            List<FranchiseStorePaymentRecord> debtRecords =
+                    franchiseStorePaymentRecordRepository.findByStoreId(order.getStoreId())
+                            .stream()
+                            .filter(r -> "PENDING".equals(r.getStatus())
+                                    && r.getDebtAmount().compareTo(totalAmount) == 0)
+                            .collect(Collectors.toList());
+
+            franchiseStorePaymentRecordRepository.deleteAll(debtRecords);
+
+            // Nếu không còn debt record PENDING nào → reset deptStatus = false
+            long remainingDebt = franchiseStorePaymentRecordRepository
+                    .findByStoreId(order.getStoreId())
+                    .stream()
+                    .filter(r -> "PENDING".equals(r.getStatus()))
+                    .count();
+
+            if (remainingDebt == 0) {
+                franchiseStoreRepository.findById(order.getStoreId()).ifPresent(store -> {
+                    store.setDeptStatus(false);
+                    franchiseStoreRepository.save(store);
+                });
+            }
+
+            log.info("Order {} → PAY_AFTER_ORDER, debt record removed, remaining debt count={}",
+                    orderId, remainingDebt);
+        }
+
+        Order saved = orderRepository.save(order);
+        log.info("Order {} payment option changed: {} → {}", orderId, oldOption, newOption);
+        return toResponse(saved);
     }
 
     // ==================== HELPER METHODS ====================
