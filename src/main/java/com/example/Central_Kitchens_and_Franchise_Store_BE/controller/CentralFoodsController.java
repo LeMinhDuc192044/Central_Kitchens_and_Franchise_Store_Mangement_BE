@@ -1,6 +1,7 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.CentralFoodsResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.FoodDecreaseResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsUpdateRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.CentralFoodsService;
@@ -38,6 +39,21 @@ public class CentralFoodsController {
             @RequestBody CentralFoodsRequest foodDTO) {
         CentralFoodsResponse createdFood = centralFoodsService.createFood(foodDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdFood);
+    }
+
+    @Operation(
+            summary = "Decrease central foods based on order",
+            description = "Decrease central foods stock based on order items"
+    )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF')")
+    @PutMapping("/decrease/{orderId}")
+    public ResponseEntity<FoodDecreaseResponse> decreaseFoodAmountByOrder(
+            @Parameter(description = "Order id", required = true)
+            @PathVariable String orderId) {
+
+        FoodDecreaseResponse response = centralFoodsService.decreaseFoodAmountByOrder(orderId);
+
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Get all food products", description = "Retrieve a list of all food products in the central kitchen")
