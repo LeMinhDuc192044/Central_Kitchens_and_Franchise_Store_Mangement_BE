@@ -197,10 +197,64 @@ public class OrderService {
     // 8. CANCEL ORDER
     @Transactional
     public OrderResponse cancelOrder(String orderId, String reason) {
-        OrderUpdateRequest updateRequest = new OrderUpdateRequest();
-        updateRequest.setNewStatus(OrderStatus.CANCELLED);
-        updateRequest.setNote(reason);
-        return updateOrderStatus(orderId, updateRequest);
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
+
+        if (order.getStatusOrder() == OrderStatus.CANCELLED) {
+            throw new IllegalStateException("Đơn hàng đã bị hủy rồi");
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            throw new IllegalStateException("Không thể hủy đơn đã thanh toán. Vui lòng hoàn tiền trước.");
+        }
+
+        // ── Cập nhật status order ─────────────────────────────────
+        order.setStatusOrder(OrderStatus.CANCELLED);
+        order.setPaymentStatus(PaymentStatus.CANCELLED);
+        if (reason != null && !reason.isEmpty()) {
+            order.setNote(reason);
+        }
+
+        // ── Nếu là PAY_AT_THE_END_OF_MONTH → xóa debt record ────
+        if (PaymentOption.PAY_AT_THE_END_OF_MONTH.equals(order.getPaymentOption())) {
+            BigDecimal totalAmount = order.getOrderDetail().getAmount();
+
+            List<FranchiseStorePaymentRecord> debtRecords =
+                    franchiseStorePaymentRecordRepository.findByStoreId(order.getStoreId())
+                            .stream()
+                            .filter(r -> "PENDING".equals(r.getStatus())
+                                    && r.getDebtAmount().compareTo(totalAmount) == 0)
+                            .collect(Collectors.toList());
+
+            franchiseStorePaymentRecordRepository.deleteAll(debtRecords);
+            log.info("Order {} cancelled → deleted {} debt record(s)", orderId, debtRecords.size());
+
+            // Reset deptStatus nếu không còn nợ
+            long remainingDebt = franchiseStorePaymentRecordRepository
+                    .findByStoreId(order.getStoreId())
+                    .stream()
+                    .filter(r -> "PENDING".equals(r.getStatus()))
+                    .count();
+
+            if (remainingDebt == 0) {
+                franchiseStoreRepository.findById(order.getStoreId()).ifPresent(store -> {
+                    store.setDeptStatus(false);
+                    franchiseStoreRepository.save(store);
+                    log.info("Store {} deptStatus reset to false", order.getStoreId());
+                });
+            }
+        }
+
+        // ── Cập nhật invoice → CANCELLED ─────────────────────────
+        orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
+            invoice.setInvoiceStatus("CANCELLED");
+            orderInvoiceRepository.save(invoice);
+            log.info("Invoice of order {} → CANCELLED", orderId);
+        });
+
+        Order saved = orderRepository.save(order);
+        log.info("Order {} → CANCELLED, reason: {}", orderId, reason);
+        return toResponse(saved);
     }
 
     // 9.LẤY ORDER DETAIL THEO ORDER ID
