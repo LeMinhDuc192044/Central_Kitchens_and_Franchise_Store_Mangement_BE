@@ -18,4 +18,5 @@ public class VNPayProperties {
     private String command;
     private String locale;
     private String currencyCode;
+    private String refundUrl;
 }
