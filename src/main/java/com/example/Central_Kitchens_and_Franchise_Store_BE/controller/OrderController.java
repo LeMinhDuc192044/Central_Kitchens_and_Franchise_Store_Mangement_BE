@@ -57,7 +57,7 @@ public class OrderController {
 
     // 3. LẤY TẤT CẢ ORDERS
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CENTRAL_KITCHEN_STAFF','SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get all orders")
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
         List<OrderResponse> orders = orderService.getAllOrders();
