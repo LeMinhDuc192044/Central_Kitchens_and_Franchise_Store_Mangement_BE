@@ -47,7 +47,7 @@ public class OrderController {
     }
 
     @GetMapping("/status/{status}")
-    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'SUPPLY_COORDINATOR', 'CENTRAL_KITCHEN_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Get orders by status")
     public ResponseEntity<List<OrderResponse>> getOrdersByStatus(
             @PathVariable OrderStatus status) {

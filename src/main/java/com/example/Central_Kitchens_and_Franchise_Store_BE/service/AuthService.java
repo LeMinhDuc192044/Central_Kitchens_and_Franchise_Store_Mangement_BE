@@ -14,7 +14,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseS
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RoleRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.UserRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.JwtUtils;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -23,6 +23,10 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -182,6 +186,14 @@ public class AuthService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     public static FranchiseStoreInfo toInfo(FranchiseStore store) {
         if (store == null) {
             return null;
@@ -212,4 +224,33 @@ public class AuthService {
         tokenService.revokeToken(token);
     }
 
+
+    private UserResponse toResponse(User user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .role(user.getRole().getName().name())
+                .active(user.getActive())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class UserResponse {
+        private String id;
+        private String fullName;
+        private String email;
+        private String phone;
+        private String role;        // e.g. "FRANCHISE_STAFF", "ADMIN"
+        private Boolean active;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+    }
 }
