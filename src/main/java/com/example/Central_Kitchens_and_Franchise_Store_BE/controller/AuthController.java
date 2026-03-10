@@ -22,6 +22,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
 @RestController
 @RequestMapping("/auth")
@@ -45,6 +47,13 @@ public class AuthController {
                         .message("User created successfully")
                         .data(authService.register(request))
                         .build());
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Get all user", description = "Get all account")
+    public ResponseEntity<List<AuthService.UserResponse>> getAllUsers() {
+        return ResponseEntity.ok(authService.getAllUsers());
     }
 
     @PostMapping("/login")
