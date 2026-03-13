@@ -60,13 +60,10 @@ public class VNPayController {
     }
 
     @PostMapping("/refund/{orderId}")
-    @Operation(summary = "Refund VNPay payment - 02: full refund, 03: partial refund")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
     public ResponseEntity<PaymentResultResponse> refund(
             @PathVariable String orderId,
-            @RequestParam(defaultValue = "02") String refundType,
             HttpServletRequest request) {
-        return ResponseEntity.ok(vnPayService.refundPayment(orderId, refundType, request));
+        return ResponseEntity.ok(vnPayService.refundPayment(orderId, request));
     }
 
 

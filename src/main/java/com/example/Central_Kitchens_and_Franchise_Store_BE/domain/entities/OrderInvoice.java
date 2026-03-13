@@ -39,7 +39,7 @@ public class OrderInvoice {
 
     // ✅ THÊM 2 field này
     @Column(name = "has_pending_transaction")
-    private boolean hasPendingTransaction = false;
+    private Boolean hasPendingTransaction = false;
 
     @Column(name = "txn_ref")
     private String txnRef;

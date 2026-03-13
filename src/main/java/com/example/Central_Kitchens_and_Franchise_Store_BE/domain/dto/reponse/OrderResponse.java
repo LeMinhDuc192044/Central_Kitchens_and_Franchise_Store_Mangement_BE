@@ -26,7 +26,7 @@ public class OrderResponse {
     private PaymentMethod paymentMethod;
     private PaymentStatus paymentStatus;
     private String note;
-
+    private OrderDetailResponse orderDetail;
     private String storeId;
 
 }

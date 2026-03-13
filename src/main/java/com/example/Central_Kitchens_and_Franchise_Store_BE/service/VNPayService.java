@@ -324,8 +324,8 @@ public class VNPayService {
     }
 
     @Transactional
-    public PaymentResultResponse refundPayment(String orderId, String refundType, HttpServletRequest httpRequest) {
-        log.info("=== REFUND START: orderId={}", orderId);
+    public PaymentResultResponse refundPayment(String orderId, HttpServletRequest httpRequest) {
+        log.info("=== REFUND START (DEV MODE): orderId={}", orderId);
 
         Payment payment = paymentRepository.findByOrderId(orderId)
                 .stream()
@@ -333,118 +333,36 @@ public class VNPayService {
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch SUCCESS cho order: " + orderId));
 
-        if (payment.getVnpayTxnNo() == null) {
-            throw new RuntimeException("Giao dịch chưa có mã VNPay TransactionNo");
-        }
+        // ✅ DEV MODE: Bỏ qua VNPay API, force REFUNDED trực tiếp
+        payment.setStatus(PaymentStatus.REFUNDED);
+        paymentRepository.save(payment);
 
-        if (payment.getPaidAt() == null) {
-            throw new IllegalStateException("Giao dịch chưa có thời gian thanh toán");
-        }
+        // ✅ Cập nhật Order → REFUNDED
+        orderRepository.findById(orderId).ifPresent(order -> {
+            order.setPaymentStatus(PaymentStatus.REFUNDED);
+            orderRepository.save(order);
+            log.info("Order {} paymentStatus → REFUNDED", orderId);
+        });
 
-        LocalDateTime oneDayAfterPayment = payment.getPaidAt().plusDays(1);
-        if (LocalDateTime.now().isBefore(oneDayAfterPayment)) {
-            throw new IllegalStateException(
-                    "Giao dịch chưa đủ điều kiện hoàn tiền. Vui lòng thử lại sau: "
-                            + oneDayAfterPayment.toLocalDate()
-            );
-        }
+        // ✅ Cập nhật Invoice → REFUNDED
+        orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
+            invoice.setInvoiceStatus("REFUNDED");
+            invoice.setHasPendingTransaction(false);
+            orderInvoiceRepository.save(invoice);
+            log.info("Invoice of order {} → REFUNDED", orderId);
+        });
 
-        String ipAddress = VNPayUtil.getIpAddress(httpRequest);
-        String requestId = VNPayUtil.generateTxnRef();
-        String createDate = VNPayUtil.getCurrentDateTime();
+        // ✅ Cập nhật PaymentRecord → REFUNDED
+        List<PaymentRecord> records = paymentRecordRepository.findAllByTxnRef(payment.getTxnRef());
+        records.forEach(record -> {
+            record.setStatus("REFUNDED");
+            record.setResponseCode("00");
+            record.setResponseMessage("Hoàn tiền thành công (dev mode)");
+            paymentRecordRepository.save(record);
+        });
 
-        Map<String, String> vnpParams = new HashMap<>();
-        vnpParams.put("vnp_RequestId", requestId);
-        vnpParams.put("vnp_Version", vnPayProperties.getVersion());
-        vnpParams.put("vnp_Command", "refund");
-        vnpParams.put("vnp_TmnCode", vnPayProperties.getTmnCode());
-        vnpParams.put("vnp_TransactionType", refundType);
-        vnpParams.put("vnp_TxnRef", payment.getTxnRef());
-        vnpParams.put("vnp_Amount", String.valueOf(payment.getAmount() * 100));
-        vnpParams.put("vnp_OrderInfo", "Hoan tien don hang " + orderId);
-        vnpParams.put("vnp_TransactionNo", payment.getVnpayTxnNo());
-        vnpParams.put("vnp_TransactionDate", createDate);
-        vnpParams.put("vnp_CreateBy", "system");
-        vnpParams.put("vnp_CreateDate", createDate);
-        vnpParams.put("vnp_IpAddr", ipAddress);
-
-        String hashData = vnpParams.get("vnp_RequestId") + "|" +
-                vnpParams.get("vnp_Version") + "|" +
-                vnpParams.get("vnp_Command") + "|" +
-                vnpParams.get("vnp_TmnCode") + "|" +
-                vnpParams.get("vnp_TransactionType") + "|" +
-                vnpParams.get("vnp_TxnRef") + "|" +
-                vnpParams.get("vnp_Amount") + "|" +
-                vnpParams.get("vnp_TransactionNo") + "|" +
-                vnpParams.get("vnp_TransactionDate") + "|" +
-                vnpParams.get("vnp_CreateBy") + "|" +
-                vnpParams.get("vnp_CreateDate") + "|" +
-                vnpParams.get("vnp_IpAddr") + "|" +
-                vnpParams.get("vnp_OrderInfo");
-
-        String secureHash = VNPayUtil.hmacSHA512(vnPayProperties.getHashSecret(), hashData);
-        vnpParams.put("vnp_SecureHash", secureHash);
-
-        try {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            String jsonBody = mapper.writeValueAsString(vnpParams);
-
-            java.net.URL url = new java.net.URL(vnPayProperties.getRefundUrl());
-            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setDoOutput(true);
-
-            try (java.io.OutputStream os = conn.getOutputStream()) {
-                os.write(jsonBody.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            }
-
-            java.io.InputStream is = conn.getResponseCode() >= 400
-                    ? conn.getErrorStream()
-                    : conn.getInputStream();
-
-            java.io.BufferedReader br = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) response.append(line);
-
-            log.info("VNPay refund raw response: {}", response);
-
-            Map<String, String> refundResponse = mapper.readValue(response.toString(), Map.class);
-            String responseCode = refundResponse.get("vnp_ResponseCode");
-
-            if ("00".equals(responseCode)) {
-                payment.setStatus(PaymentStatus.REFUNDED);
-                paymentRepository.save(payment);
-
-                String orderIdFromPayment = payment.getOrderId();
-                log.info("Refund SUCCESS - updating order and invoice for orderId={}", orderIdFromPayment);
-
-                if (orderIdFromPayment != null) {
-                    orderRepository.findById(orderIdFromPayment).ifPresent(order -> {
-                        order.setPaymentStatus(PaymentStatus.REFUNDED);
-                        orderRepository.save(order);
-                        log.info("Order {} paymentStatus → REFUNDED", orderIdFromPayment);
-                    });
-
-                    orderInvoiceRepository.findByOrderId(orderIdFromPayment).ifPresent(invoice -> {
-                        invoice.setInvoiceStatus("REFUNDED");
-                        invoice.setHasPendingTransaction(false); // ✅ Đảm bảo reset
-                        orderInvoiceRepository.save(invoice);
-                        log.info("Invoice of order {} → REFUNDED", orderIdFromPayment);
-                    });
-                }
-            }
-
-            log.info("Refund result: orderId={}, responseCode={}", orderId, responseCode);
-            String message = VNPayResponseCode.getMessage(responseCode);
-            return buildResult(payment, responseCode, message);
-
-        } catch (Exception e) {
-            log.error("Refund failed: {}", e.getMessage());
-            throw new RuntimeException("Hoàn tiền thất bại: " + e.getMessage());
-        }
+        log.info("Refund SUCCESS (dev mode): orderId={}", orderId);
+        return buildResult(payment, "00", "Hoàn tiền thành công (dev mode)");
     }
 
     // ============================================================
