@@ -37,6 +37,13 @@ public class OrderInvoice {
     @Column(name = "order_id_fk")
     private String orderId;
 
+    // ✅ THÊM 2 field này
+    @Column(name = "has_pending_transaction")
+    private Boolean hasPendingTransaction = false;
+
+    @Column(name = "txn_ref")
+    private String txnRef;
+
     @OneToOne
     @JoinColumn(name = "order_id_fk", referencedColumnName = "order_detail_id", insertable = false, updatable = false)
     private OrderDetail orderDetail;

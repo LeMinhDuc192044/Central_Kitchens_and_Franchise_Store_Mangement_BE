@@ -4,6 +4,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.Pa
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentRecordResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.StoreResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreatePaymentRecordRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateStoreRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.UpdatePaymentMethodRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.FranchiseStoreService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,6 +26,14 @@ import java.util.List;
 public class FranchiseStoreController {
 
     private final FranchiseStoreService franchiseStoreService;
+
+    @PostMapping
+    @Operation(summary = "Create a new franchise store")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<StoreResponse> createStore(@RequestBody CreateStoreRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(franchiseStoreService.createStore(request));
+    }
 
     @GetMapping("/{storeId}")
     @Operation(summary = "Get a store information by StoreID")

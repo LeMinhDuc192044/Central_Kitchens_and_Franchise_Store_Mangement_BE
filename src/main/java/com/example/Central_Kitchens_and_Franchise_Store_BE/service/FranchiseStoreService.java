@@ -9,6 +9,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.Up
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStore;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStorePaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStorePaymentRecord;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.User;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentMethodRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentRecordRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStoreRepository;
@@ -32,6 +33,44 @@ public class FranchiseStoreService {
     private final FranchiseStorePaymentRecordRepository paymentRecordRepository;
     private final FranchiseStorePaymentMethodRepository paymentMethodRepository;
 
+    @Transactional
+    public StoreResponse createStore(CreateStoreRequest request) {
+        String storeId = generateStoreId(); // ✅ Tự generate
+
+        FranchiseStore store = FranchiseStore.builder()
+                .storeId(storeId)
+                .storeName(request.storeName())
+                .address(request.address())
+                .district(request.district())
+                .ward(request.ward())
+                .revenue(request.revenue())
+                .numberOfContact(request.numberOfContact())
+                .deptStatus(false)
+                .build();
+
+        if (request.managerEmail() != null && !request.managerEmail().isBlank()) {
+            User manager = userRepository.findByEmail(request.managerEmail())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Không tìm thấy user với email: " + request.managerEmail()));
+            store.assignManager(manager);
+        }
+
+        FranchiseStore saved = franchiseStoreRepository.save(store);
+
+        FranchiseStorePaymentMethod defaultMethod = new FranchiseStorePaymentMethod();
+        defaultMethod.setStorePaymentId(UUID.randomUUID().toString());
+        defaultMethod.setStoreId(saved.getStoreId());
+        defaultMethod.setPaymentMethod("CREDIT");
+        paymentMethodRepository.save(defaultMethod);
+
+        return toStoreResponse(saved);
+    }
+
+    private String generateStoreId() {
+        long count = franchiseStoreRepository.count() + 1;
+        int random = (int)(Math.random() * 900) + 100; // 3 số random 100-999
+        return "STORE-D" + count + "-" + random;
+    }
 
 
     // ── GET STORE ─────────────────────────────────────────────────────────────────

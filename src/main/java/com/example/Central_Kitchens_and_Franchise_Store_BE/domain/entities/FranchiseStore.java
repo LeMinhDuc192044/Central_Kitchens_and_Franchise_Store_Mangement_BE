@@ -67,10 +67,5 @@ public class FranchiseStore {
         user.setManagedStore(this);
     }
 
-    public void removeManager() {
-        if (this.manager != null) {
-            this.manager.setManagedStore(null);
-            this.manager = null;
-        }
-    }
+
 }

@@ -47,6 +47,16 @@ public class OrderService {
     public OrderResponse createOrder(OrderRequest request) {
         String orderId = orderIdGenerator.generateOrderId();
 
+        // ── Validate PaymentMethod theo PaymentOption ─────────────
+        if ((PaymentOption.PAY_AFTER_ORDER.equals(request.getPaymentOption())
+                || PaymentOption.PAY_AT_THE_END_OF_MONTH.equals(request.getPaymentOption()))
+                && request.getPaymentMethod() != PaymentMethod.CREDIT) {
+            throw new IllegalArgumentException(
+                    "Payment option " + request.getPaymentOption()
+                            + " chỉ hỗ trợ phương thức CREDIT, không hỗ trợ: "
+                            + request.getPaymentMethod());
+        }
+
         Order order = Order.builder()
                 .orderId(orderId)
                 .statusOrder(OrderStatus.PENDING)
@@ -109,6 +119,7 @@ public class OrderService {
     }
 
     // 2. LẤY ORDER THEO ID
+    @Transactional
     public OrderResponse getOrderById(String orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
@@ -116,6 +127,7 @@ public class OrderService {
     }
 
     // 3. LẤY TẤT CẢ ORDERS
+    @Transactional
     public List<OrderResponse> getAllOrders() {
         return orderRepository.findAll().stream()
                 .map(this::toResponse)
@@ -188,6 +200,7 @@ public class OrderService {
     }
 
     // 7. LẤY ORDER THEO STORE ID
+    @Transactional
     public List<OrderResponse> getOrdersByStoreId(String storeId) {
         return orderRepository.findByStoreId(storeId).stream()
                 .map(this::toResponse)
@@ -313,6 +326,7 @@ public class OrderService {
 
 
     // 12. LẤY ORDERS PENDING THEO STORE ID
+    @Transactional
     public List<OrderResponse> getAllOrdersWithPendingStatusByStoreId(String storeId) {
         return orderRepository.findByStoreIdAndStatusOrder(storeId, OrderStatus.PENDING).stream()
                 .map(this::toResponse)
@@ -320,6 +334,7 @@ public class OrderService {
     }
 
     // 13. LẤY TẤT CẢ ORDERS PENDING
+    @Transactional
     public List<OrderResponse> getAllOrdersWithPendingStatus() {
         return orderRepository.findByStatusOrder(OrderStatus.PENDING).stream()
                 .map(this::toResponse)
@@ -468,16 +483,22 @@ public class OrderService {
     }
 
     private OrderResponse toResponse(Order order) {
+        OrderDetailResponse detailResponse = null;
+        if (order.getOrderDetail() != null) {
+            detailResponse = toOrderDetailResponse(order.getOrderDetail());
+        }
+
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .priorityLevel(order.getPriorityLevel())
                 .paymentOption(order.getPaymentOption())
-                .paymentMethod(order.getPaymentMethod())   // ← thêm
+                .paymentMethod(order.getPaymentMethod())
                 .paymentStatus(order.getPaymentStatus())
                 .orderDate(order.getOrderDate())
                 .statusOrder(order.getStatusOrder())
                 .storeId(order.getStoreId())
                 .note(order.getNote())
+                .orderDetail(detailResponse) // ✅ Thêm
                 .build();
     }
 
