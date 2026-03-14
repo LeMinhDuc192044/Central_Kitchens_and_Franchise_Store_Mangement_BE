@@ -42,6 +42,7 @@ public class GhnService {
     private final OrderDetailRepository orderDetailRepository;
     private final GhnMapper ghnMapper;
     private final GhnStatusMapper ghnStatusMapper;
+    private final FranchiseStoreRepository franchiseStoreRepository;
 
 
     private HttpHeaders buildHeaders(boolean includeShopId) {
@@ -62,59 +63,76 @@ public class GhnService {
         log.info("Creating order with payment_type_id: {}", request.getPayment_type_id());
 
         OrderDetail orderDetail = orderDetailRepository.findByOrderDetailId(request.getOrderDetailId())
-                .orElseThrow(() -> new ResourceNotFoundException("Order details with this id " + request.getOrderDetailId() + " does not existed!!!"));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "OrderDetail not found: " + request.getOrderDetailId()));
 
-        // Step 1: Validate foods
+        // Step 2: Find FranchiseStore — delivery destination
+        FranchiseStore store = franchiseStoreRepository.findById(request.getStoreId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Store not found: " + request.getStoreId()));
+
+        if (store.getDistrict() == null || store.getWard() == null) {
+            throw new IllegalStateException(
+                    "Store [" + request.getStoreId() + "] has no valid GHN address. " +
+                            "Please update the store address first.");
+        }
+
+        // Step 3: Validate foods
         List<CentralFoods> centralFoods = validateAndFetchFoods(request.getFoods());
 
-        // Step 2: Convert to GHN items
+        // Step 4: Auto-calculate total weight and max dimensions from food items
+        PackageDimensions dimensions = calculateDimensions(request.getFoods(), centralFoods);
+        log.info("Calculated package: weight={}g, {}x{}x{}cm",
+                dimensions.weight(), dimensions.length(), dimensions.width(), dimensions.height());
+
+        // Step 5: Convert to GHN items
         List<GhnItem> items = ghnMapper.convertToGhnItems(request.getFoods(), centralFoods);
 
-        // Step 3: Build Shipment payload
-        Shipment shipment = buildShipmentPayload(request, items);
+        // Step 6: Generate client order code
+        String clientOrderCode = generateDeliverOrderId(
+                request.getPayment_type_id(),
+                request.getService_type_id()
+        );
 
-        // Step 4: Call GHN API
-        Map<String, Object> ghnResponse = callGhnCreateOrderApi(request, items, shipment.getGhnOrderCode());
+        // Step 7: Call GHN API
+        Map<String, Object> ghnResponse = callGhnCreateOrderApi(request, items, clientOrderCode, store, dimensions);
 
-        // Step 5: Extract GHN order code from response
+        // Step 8: Extract GHN response data
         Map<String, Object> data = (Map<String, Object>) ghnResponse.get("data");
         String ghnOrderCode = (String) data.get("order_code");
-        String ghnStatus = (String) data.get("status");
+        String ghnStatus    = (String) data.get("status");
         ShipmentStatus newShipmentStatus = ghnStatusMapper.toShipmentStatus(ghnStatus);
 
-
-        // Step 6: Save Shipment to database
-        shipment.setShipmentCodeId(shipment.getClient_order_code()); // Use client_order_code as ID
+        // Step 9: Save Shipment
+        Shipment shipment = buildShipmentPayload(request, items, store, dimensions, clientOrderCode);
+        shipment.setShipmentCodeId(clientOrderCode);
         shipment.setGhnOrderCode(ghnOrderCode);
-        shipment.setOrderDetailId(orderDetail.getOrderDetailId()); // set order detail
+        shipment.setOrderDetailId(orderDetail.getOrderDetailId());
         shipment.setCreatedAt(LocalDateTime.now());
         shipment.setUpdatedAt(LocalDateTime.now());
         shipment.setShipStatus(newShipmentStatus);
 
         Shipment savedShipment = shipmentRepository.save(shipment);
 
-        ShipPaymentType paymentType = null;
-        if(request.getPayment_type_id() == 1) {
-            paymentType = ShipPaymentType.SENDER_PAY;
-        } else if(request.getPayment_type_id() == 2) {
-            paymentType = ShipPaymentType.RECEIVER_PAY;
-        } else {
-            throw new RuntimeException("Payment id is null or is not 1, 2!!!!");
-        }
+        // Step 10: Save ShipInvoice
+        ShipPaymentType paymentType = switch (request.getPayment_type_id()) {
+            case 1 -> ShipPaymentType.SENDER_PAY;
+            case 2 -> ShipPaymentType.RECEIVER_PAY;
+            default -> throw new RuntimeException("Invalid payment_type_id");
+        };
 
-        // Step 7: Create and save ShipInvoice
         ShipInvoice shipInvoice = ShipInvoice.builder()
                 .shipInvoiceId(generateShipInvoiceId())
                 .shipmentCodeId(savedShipment.getShipmentCodeId())
                 .paymentType(paymentType)
-                .totalPrice(BigDecimal.ZERO)// Will be updated when fee is calculated
+                .totalPrice(BigDecimal.ZERO)
                 .totalPrice(BigDecimal.ZERO)// Will be updated when fee is calculated
                 .invoiceStatus(InvoiceStatus.PENDING)
                 .build();
 
         shipInvoiceRepository.save(shipInvoice);
-
-        log.info("ShipInvoice created with ID: {}", shipInvoice.getShipInvoiceId());
+        log.info("Order created — GHN: {}, ShipInvoice: {}",
+                ghnOrderCode, shipInvoice.getShipInvoiceId());
 
         return ghnResponse;
     }
@@ -336,88 +354,75 @@ public class GhnService {
         return centralFoods;
     }
 
-    private Shipment buildShipmentPayload(CreateDeliveryOrderRequest request, List<GhnItem> items) {
-
-
-        ShipServiceType serviceType = null;
-        if(request.getService_type_id() == 1) {
-            serviceType = ShipServiceType.EXPRESS;
-        } else if(request.getService_type_id() == 2) {
-            serviceType = ShipServiceType.STANDARD;
-        } else {
-            throw new RuntimeException("Service type id is null or is not 1, 2!!!!!");
-        }
+    private Shipment buildShipmentPayload(CreateDeliveryOrderRequest request,
+                                          List<GhnItem> items,
+                                          FranchiseStore store,
+                                          PackageDimensions dim,
+                                          String clientOrderCode) {
+        ShipServiceType serviceType = switch (request.getService_type_id()) {
+            case 1 -> ShipServiceType.EXPRESS;
+            case 2 -> ShipServiceType.STANDARD;
+            default -> throw new RuntimeException("Invalid service_type_id: " + request.getService_type_id());
+        };
 
         return Shipment.builder()
                 .note(request.getNote())
                 .required_note(request.getRequired_note())
                 .to_name(request.getTo_name())
                 .to_phone(request.getTo_phone())
-                .to_address(request.getTo_address())
-                .to_ward_code(request.getTo_ward_code())
-                .to_district_id(request.getTo_district_id())
+                .to_address(store.getAddress())        // ← from store
+                .to_ward_code(store.getWard())             // ← from store
+                .to_district_id(store.getDistrict())       // ← from store
                 .cod_amount(request.getCod_amount())
-                .weight(request.getWeight())
-                .length(request.getLength())
-                .width(request.getWidth())
-                .height(request.getHeight())
+                .weight(dim.weight())                      // ← calculated
+                .length(dim.length())                      // ← calculated
+                .width(dim.width())                        // ← calculated
+                .height(dim.height())                      // ← calculated
                 .service_type(serviceType)
-                .items(items) // Transient field for GHN API
-                .client_order_code(generateDeliverOrderId(
-                        request.getPayment_type_id(),
-                        request.getService_type_id()
-                ))
+                .items(items)
+                .client_order_code(clientOrderCode)
                 .build();
     }
 
-    private Map<String, Object> callGhnCreateOrderApi(CreateDeliveryOrderRequest createDeliveryOrderRequest,
-                                                      List<GhnItem> items, String clientOrderCode) {
+    private Map<String, Object> callGhnCreateOrderApi(CreateDeliveryOrderRequest request,
+                                                      List<GhnItem> items,
+                                                      String clientOrderCode,
+                                                      FranchiseStore store,
+                                                      PackageDimensions dim) {
         String url = ghnConfig.getBaseUrl() + "/shiip/public-api/v2/shipping-order/create";
 
-        // Build request body for GHN API
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("payment_type_id", createDeliveryOrderRequest.getPayment_type_id());
-        requestBody.put("note", createDeliveryOrderRequest.getNote());
-        requestBody.put("required_note", createDeliveryOrderRequest.getRequired_note());
-        requestBody.put("to_name", createDeliveryOrderRequest.getTo_name());
-        requestBody.put("to_phone", createDeliveryOrderRequest.getTo_phone());
-        requestBody.put("to_address", createDeliveryOrderRequest.getTo_address());
-        requestBody.put("to_ward_code", createDeliveryOrderRequest.getTo_ward_code());
-        requestBody.put("to_district_id", createDeliveryOrderRequest.getTo_district_id());
-        requestBody.put("cod_amount", createDeliveryOrderRequest.getCod_amount());
-        requestBody.put("weight", createDeliveryOrderRequest.getWeight());
-        requestBody.put("length", createDeliveryOrderRequest.getLength());
-        requestBody.put("width", createDeliveryOrderRequest.getWidth());
-        requestBody.put("height", createDeliveryOrderRequest.getHeight());
-        requestBody.put("service_type_id", createDeliveryOrderRequest.getService_type_id());
-        requestBody.put("items", items);
+        requestBody.put("payment_type_id",   request.getPayment_type_id());
+        requestBody.put("note",              request.getNote());
+        requestBody.put("required_note",     request.getRequired_note());
+        requestBody.put("to_name",           request.getTo_name());
+        requestBody.put("to_phone",          request.getTo_phone());
+        requestBody.put("to_address",        request.getTo_address());
+        requestBody.put("to_ward_code",      store.getWard());          // ← store
+        requestBody.put("to_district_id",    store.getDistrict());      // ← store
+        requestBody.put("cod_amount",        request.getCod_amount());
+        requestBody.put("weight",            dim.weight());             // ← calculated
+        requestBody.put("length",            dim.length());             // ← calculated
+        requestBody.put("width",             dim.width());              // ← calculated
+        requestBody.put("height",            dim.height());             // ← calculated
+        requestBody.put("service_type_id",   request.getService_type_id());
+        requestBody.put("items",             items);
         requestBody.put("client_order_code", clientOrderCode);
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, buildHeaders(true));
 
         try {
             ResponseEntity<Map> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    entity,
-                    Map.class
-            );
-
-            log.info("GHN Status: {}", response.getStatusCode());
-            log.info("GHN Response: {}", response.getBody());
-
+                    url, HttpMethod.POST, entity, Map.class);
+            log.info("GHN Status: {}, Response: {}", response.getStatusCode(), response.getBody());
             return response.getBody();
 
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            log.error("GHN API ERROR STATUS: {}", e.getStatusCode());
-            log.error("GHN API ERROR BODY: {}", e.getResponseBodyAsString());
-
-            throw new RuntimeException(
-                    "GHN API error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString()
-            );
+            log.error("GHN API ERROR: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RuntimeException("GHN API error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
 
         } catch (Exception e) {
-            log.error("Unexpected error calling GHN", e);
+            log.error("Unexpected GHN error", e);
             throw new RuntimeException("Unexpected GHN error: " + e.getMessage());
         }
     }
@@ -437,5 +442,38 @@ public class GhnService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Invoice not found: " + shipInvoiceId));
         return ghnMapper.toShipInvoiceResponse(invoice);
+    }
+
+    private record PackageDimensions(int weight, int length, int width, int height) {}
+
+    private PackageDimensions calculateDimensions(Map<String, Integer> foods,
+                                                  List<CentralFoods> centralFoods) {
+        Map<String, CentralFoods> foodMap = centralFoods.stream()
+                .collect(Collectors.toMap(CentralFoods::getCentralFoodId, f -> f));
+
+        int totalWeight = 0;
+        int maxLength   = 0;
+        int maxWidth    = 0;
+        int maxHeight   = 0;
+
+        for (Map.Entry<String, Integer> entry : foods.entrySet()) {
+            String foodId  = entry.getKey();
+            int quantity   = entry.getValue();
+            CentralFoods food = foodMap.get(foodId);
+
+            if (food.getWeight() == null || food.getLength() == null
+                    || food.getWidth() == null || food.getHeight() == null) {
+                throw new IllegalStateException(
+                        "Food [" + foodId + "] is missing dimension data (weight/length/width/height). " +
+                                "Please update the food record.");
+            }
+
+            totalWeight += food.getWeight() * quantity;
+            maxLength    = Math.max(maxLength, food.getLength());
+            maxWidth     = Math.max(maxWidth,  food.getWidth());
+            maxHeight   += food.getHeight() * quantity; // stack height for multiple items
+        }
+
+        return new PackageDimensions(totalWeight, maxLength, maxWidth, maxHeight);
     }
 }

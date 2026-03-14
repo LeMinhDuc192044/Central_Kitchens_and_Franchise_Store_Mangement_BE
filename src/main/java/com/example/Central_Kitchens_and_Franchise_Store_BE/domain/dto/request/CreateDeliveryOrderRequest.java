@@ -38,22 +38,10 @@ public class CreateDeliveryOrderRequest {
     @NotBlank(message = "Address of the receiver must not be blank!!!")
     private String to_address;
 
-    private String to_ward_code;
-    private Integer to_district_id;
-
     private Integer cod_amount;       // Cash on delivery amount
 
-    @NotNull(message = "Weight must not be blank!!!!")
-    private Integer weight;           // grams
-
-    @NotNull(message = "Length must not be blank!!!!")
-    private Integer length;           // cm
-
-    @NotNull(message = "Width must not be blank!!!!")
-    private Integer width;            // cm
-
-    @NotNull(message = "Height must not be blank!!!!")
-    private Integer height;           // cm
+    @NotBlank(message = "Store id must not be blank!!!")
+    private String storeId;
 
     @NotNull
     @Min(1)

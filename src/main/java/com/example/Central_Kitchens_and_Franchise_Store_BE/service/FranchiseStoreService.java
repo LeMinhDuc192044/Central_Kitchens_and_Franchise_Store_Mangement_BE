@@ -32,17 +32,32 @@ public class FranchiseStoreService {
     private final UserRepository userRepository;
     private final FranchiseStorePaymentRecordRepository paymentRecordRepository;
     private final FranchiseStorePaymentMethodRepository paymentMethodRepository;
+    private final GhnAddressValidationService ghnAddressValidationService;
 
     @Transactional
     public StoreResponse createStore(CreateStoreRequest request) {
         String storeId = generateStoreId();
 
+        GhnAddressValidationService.GhnAddressResult ghnAddress = ghnAddressValidationService.validateFullAddressById(
+                request.province(),
+                request.district(),
+                request.ward()
+        );
+
+        String fullAddress = request.address() + ", " +
+                ghnAddress.getWardName() + ", " +
+                ghnAddress.getDistrictName() + ", " +
+                ghnAddress.getProvinceName();
+
         FranchiseStore store = FranchiseStore.builder()
                 .storeId(storeId)
                 .storeName(request.storeName())
-                .address(request.address())
+                .address(fullAddress)       // raw street address
                 .district(request.district())
+                .province(request.province())
                 .ward(request.ward())
+                .district(ghnAddress.getDistrictId())  // ← GHN district ID
+                .ward(ghnAddress.getWardCode())       // ← GHN ward code
                 .revenue(request.revenue())
                 .numberOfContact(null)   // sẽ được fill khi staff đăng ký
                 .deptStatus(false)
@@ -209,10 +224,10 @@ public class FranchiseStoreService {
                 s.getAddress(),
                 s.getDistrict(),
                 s.getWard(),
+                s.getProvince(),
                 s.isDeptStatus(),
                 s.getRevenue(),
                 s.getNumberOfContact(),
-                s.getManager() != null ? s.getManager().getEmail() : null,
                 methods
         );
     }
