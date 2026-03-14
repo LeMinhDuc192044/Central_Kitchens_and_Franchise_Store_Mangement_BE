@@ -5,6 +5,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.ShipI
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Shipment;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.InvoiceStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipmentStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnWebhookPayload;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.GhnStatusMapper;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
@@ -42,7 +43,7 @@ public class GhnWebhookService {
                 });
 
         // Step 2: Update delivery order status
-        deliveryOrder.setShipStatus(ghnStatus);
+        deliveryOrder.setShipStatus(ShipmentStatus.valueOf(ghnStatus));
         deliveryOrder.setUpdatedAt(LocalDateTime.now());
         shipmentRepository.save(deliveryOrder);
         log.info("DeliveryOrder [{}] status updated to: {}", ghnOrderCode, ghnStatus);
@@ -50,7 +51,7 @@ public class GhnWebhookService {
         // Step 3: Map GHN status → your OrderStatus and update kitchen order
         Order kitchenOrder = deliveryOrder.getOrderDetail().getOrder();
         if (kitchenOrder != null) {
-            OrderStatus newStatus = ghnStatusMapper.map(ghnStatus);
+            OrderStatus newStatus = ghnStatusMapper.toOrderStatus(ghnStatus);
             kitchenOrder.setStatusOrder(newStatus);
             kitchenOrderRepository.save(kitchenOrder);
             log.info("KitchenOrder [{}] status updated to: {}", kitchenOrder.getOrderId(), newStatus);

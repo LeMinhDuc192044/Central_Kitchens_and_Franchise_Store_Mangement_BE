@@ -2,6 +2,7 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
@@ -9,6 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -23,6 +25,10 @@ public class OrderRequest {
     private PaymentOption paymentOption;
 
     private String note;
+
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    @FutureOrPresent(message = "Ngày nhận hàng không được ở quá khứ")
+    private LocalDate orderDate;
 
     @NotNull(message = "Payment method is required")
     private PaymentMethod paymentMethod; // CASH hoặc CREDIT
