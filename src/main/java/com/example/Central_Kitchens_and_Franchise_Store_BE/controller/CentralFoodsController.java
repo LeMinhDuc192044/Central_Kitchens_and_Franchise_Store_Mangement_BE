@@ -1,6 +1,7 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.CentralFoodsResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.FoodDecreaseResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsUpdateRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.CentralFoodsService;
@@ -40,8 +41,23 @@ public class CentralFoodsController {
         return ResponseEntity.status(HttpStatus.CREATED).body(createdFood);
     }
 
+    @Operation(
+            summary = "Decrease central foods based on order",
+            description = "Decrease central foods stock based on order items"
+    )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF')")
+    @PutMapping("/decrease/{orderId}")
+    public ResponseEntity<FoodDecreaseResponse> decreaseFoodAmountByOrder(
+            @Parameter(description = "Order id", required = true)
+            @PathVariable String orderId) {
+
+        FoodDecreaseResponse response = centralFoodsService.decreaseFoodAmountByOrder(orderId);
+
+        return ResponseEntity.ok(response);
+    }
+
     @Operation(summary = "Get all food products", description = "Retrieve a list of all food products in the central kitchen")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF', 'SUPPLY_COORDINATOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF', 'SUPPLY_COORDINATOR', 'FRANCHISE_STAFF')")
     @GetMapping
     public ResponseEntity<List<CentralFoodsResponse>> getAllFoods() {
         List<CentralFoodsResponse> foods = centralFoodsService.getAllFoods();
@@ -49,7 +65,7 @@ public class CentralFoodsController {
     }
 
     @Operation(summary = "Get food by ID", description = "Retrieve a specific food product by its ID")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF', 'SUPPLY_COORDINATOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF', 'SUPPLY_COORDINATOR', 'FRANCHISE_STAFF')")
     @GetMapping("/{id}")
     public ResponseEntity<CentralFoodsResponse> getFoodById(
             @Parameter(description = "Food ID", required = true, example = "FOOD001")

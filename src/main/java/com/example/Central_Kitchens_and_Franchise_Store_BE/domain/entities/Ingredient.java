@@ -1,5 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.IngredientStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -37,7 +38,7 @@ public class Ingredient {
     private LocalDate manufacturingDate;
 
     @Column(name = "status")
-    private String status;
+    private IngredientStatus status;
 
     @Column(name = "origin")
     private String origin;

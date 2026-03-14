@@ -13,9 +13,9 @@ import java.util.List;
 import java.util.Map;
 
 @Data
-@Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CreateDeliveryOrderRequest {
 

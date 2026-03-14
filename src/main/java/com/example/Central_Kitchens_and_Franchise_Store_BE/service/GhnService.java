@@ -4,14 +4,13 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.config.GhnConfig;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.ShipInvoiceResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateDeliveryOrderRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.FoodStatus;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.InvoiceStatus;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipPaymentType;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipServiceType;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentInfo;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentStatusUpdateResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.GhnMapper;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.GhnStatusMapper;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.RandomGeneratorUtil;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +33,7 @@ import java.util.stream.Collectors;
 public class GhnService {
 
     private final RestTemplate restTemplate;
+    private final OrderRepository orderRepository;
     private final GhnConfig ghnConfig;
     private final ShipmentRepository shipmentRepository;
     private final ShipInvoiceRepository shipInvoiceRepository;
@@ -41,6 +41,7 @@ public class GhnService {
     private final CentralFoodsRepository centralFoodsRepository;
     private final OrderDetailRepository orderDetailRepository;
     private final GhnMapper ghnMapper;
+    private final GhnStatusMapper ghnStatusMapper;
 
 
     private HttpHeaders buildHeaders(boolean includeShopId) {
@@ -78,14 +79,17 @@ public class GhnService {
         // Step 5: Extract GHN order code from response
         Map<String, Object> data = (Map<String, Object>) ghnResponse.get("data");
         String ghnOrderCode = (String) data.get("order_code");
+        String ghnStatus = (String) data.get("status");
+        ShipmentStatus newShipmentStatus = ghnStatusMapper.toShipmentStatus(ghnStatus);
 
 
         // Step 6: Save Shipment to database
         shipment.setShipmentCodeId(shipment.getClient_order_code()); // Use client_order_code as ID
         shipment.setGhnOrderCode(ghnOrderCode);
-        shipment.setOrderDetail(orderDetail); // set order detail
+        shipment.setOrderDetailId(orderDetail.getOrderDetailId()); // set order detail
         shipment.setCreatedAt(LocalDateTime.now());
         shipment.setUpdatedAt(LocalDateTime.now());
+        shipment.setShipStatus(newShipmentStatus);
 
         Shipment savedShipment = shipmentRepository.save(shipment);
 
@@ -103,6 +107,7 @@ public class GhnService {
                 .shipInvoiceId(generateShipInvoiceId())
                 .shipmentCodeId(savedShipment.getShipmentCodeId())
                 .paymentType(paymentType)
+                .totalPrice(BigDecimal.ZERO)// Will be updated when fee is calculated
                 .totalPrice(BigDecimal.ZERO)// Will be updated when fee is calculated
                 .invoiceStatus(InvoiceStatus.PENDING)
                 .build();
@@ -144,6 +149,68 @@ public class GhnService {
             log.error("GHN Track Order Error: {}", e.getResponseBodyAsString());
             throw new RuntimeException("GHN API error: " + e.getResponseBodyAsString());
         }
+    }
+    //------------------------------------------------------------------------------------------------------------------------
+    @Transactional
+    public ShipmentStatusUpdateResponse updateShipmentStatus(String shipmentId) {
+        log.info("Updating shipment status for shipment ID: {}", shipmentId);
+
+        // Step 1: Find Shipment
+
+
+        Shipment shipment = shipmentRepository.findById(shipmentId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Shipment not found with ID: " + shipmentId));
+
+        OrderDetail orderDetail = orderDetailRepository.findByOrderDetailId(shipment.getOrderDetailId())
+                .orElseThrow(() -> new ResourceNotFoundException("Order details with this id " + shipment.getOrderDetailId() + " does not existed!!!"));
+
+        // Step 2: Call GHN to get latest status
+        String ghnOrderCode = shipment.getGhnOrderCode();
+        Map<String, Object> trackResponse = trackOrder(ghnOrderCode);
+
+        if (trackResponse == null || !Integer.valueOf(200).equals(trackResponse.get("code"))) {
+            throw new RuntimeException("Failed to fetch GHN status for: " + ghnOrderCode);
+        }
+
+        Map<String, Object> data = (Map<String, Object>) trackResponse.get("data");
+        String ghnStatus = (String) data.get("status");
+        log.info("GHN status for order [{}]: {}", ghnOrderCode, ghnStatus);
+
+        // Step 3: Map GHN status → your enums
+        ShipmentStatus newShipmentStatus = ghnStatusMapper.toShipmentStatus(ghnStatus);
+        OrderStatus newOrderStatus       = ghnStatusMapper.toOrderStatus(ghnStatus);
+
+        // Step 4: Update Shipment
+        shipment.setShipStatus(newShipmentStatus);
+        shipment.setUpdatedAt(LocalDateTime.now());
+        shipmentRepository.save(shipment);
+        log.info("Shipment [{}] → {}", shipmentId, newShipmentStatus);
+
+        // Step 5: Navigate Shipment → OrderDetail → Order and update statusOrder
+
+
+        Order order = orderDetail.getOrder();
+        if (order == null) {
+            throw new ResourceNotFoundException(
+                    "No Order linked to OrderDetail: " + orderDetail.getOrderDetailId());
+        }
+
+        order.setStatusOrder(newOrderStatus);   // ← uses your existing statusOrder field
+        orderRepository.save(order);
+        log.info("Order [{}] statusOrder → {}", order.getOrderId(), newOrderStatus);
+
+        // Step 6: Return result
+        return ShipmentStatusUpdateResponse.builder()
+                .shipmentId(shipmentId)
+                .ghnOrderCode(ghnOrderCode)
+                .ghnRawStatus(ghnStatus)
+                .shipmentStatus(newShipmentStatus)
+                .orderDetailId(orderDetail.getOrderDetailId())
+                .orderId(order.getOrderId())
+                .orderStatus(newOrderStatus)
+                .updatedAt(LocalDateTime.now())
+                .build();
     }
 
     // ─── CALCULATE FEE ────────────────────────────────────────────────────────

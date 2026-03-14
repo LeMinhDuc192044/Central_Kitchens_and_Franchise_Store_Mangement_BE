@@ -112,6 +112,12 @@ public class OrderService {
         return toResponse(savedOrder);
     }
 
+    public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
+        return orderRepository.findByStatusOrder(status).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     // 2. LẤY ORDER THEO ID
     @Transactional
     public OrderResponse getOrderById(String orderId) {

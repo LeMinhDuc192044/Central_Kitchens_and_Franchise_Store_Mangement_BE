@@ -1,15 +1,15 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.CentralFoodsResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.FoodDecreaseResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsUpdateRequest;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.CentralFoodCategory;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.CentralFoods;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Recipe;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.CentralFoodsMapper;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodCategoryRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RecipeRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.RandomGeneratorUtil;
 import lombok.RequiredArgsConstructor;
@@ -17,8 +17,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -30,6 +33,7 @@ public class CentralFoodsService {
     private final CentralFoodsRepository foodsRepository;
     private final CentralFoodsMapper centralFoodsMapper;
     private final CentralFoodCategoryRepository centralFoodCategoryRepository;
+    private final OrderRepository orderRepository;
     private final RandomGeneratorUtil randomGeneratorUtil;
 
 
@@ -53,6 +57,68 @@ public class CentralFoodsService {
         CentralFoods savedFood = foodsRepository.save(food);
         return centralFoodsMapper.convertToDTO(savedFood);
     }
+
+    @Transactional
+    public FoodDecreaseResponse  decreaseFoodAmountByOrder(String orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("" +
+                        "Order with this " + orderId + " id does not existed!!!"));
+
+        OrderDetail orderDetail = Optional.ofNullable(order.getOrderDetail())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "OrderDetail not found for Order ID: " + order.getOrderId()));
+
+        List<OrderDetailItem> items = orderDetail.getOrderDetailItems();
+
+        if (items == null || items.isEmpty()) {
+            log.warn("No OrderDetailItems found for Order ID: {}", order.getOrderId());
+            return FoodDecreaseResponse.builder()
+                    .orderId(order.getOrderId())
+                    .decreasedFoods(List.of())
+                    .build();
+        }
+
+        List<FoodDecreaseResponse.FoodDecreaseDetail> details = new ArrayList<>();
+
+        for (OrderDetailItem item : items) {
+            String foodId = item.getCentralFoodId();
+            BigDecimal quantityToDeduct = BigDecimal.valueOf(item.getQuantity());
+
+            CentralFoods food = foodsRepository.findById(foodId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "CentralFood not found with ID: " + foodId));
+
+            if (food.getAmount().compareTo(quantityToDeduct) < 0) {
+                throw new IllegalStateException(
+                        "Insufficient stock for food [" + food.getFoodName() + "]. "
+                                + "Available: " + food.getAmount()
+                                + ", Requested: " + quantityToDeduct);
+            }
+
+            BigDecimal previousAmount = food.getAmount();
+            BigDecimal remainingAmount = previousAmount.subtract(quantityToDeduct);
+
+            food.setAmount(remainingAmount);
+            foodsRepository.save(food);
+
+            log.info("Decreased food [{}] amount by {}. Remaining: {}",
+                    food.getFoodName(), quantityToDeduct, remainingAmount);
+
+            details.add(FoodDecreaseResponse.FoodDecreaseDetail.builder()
+                    .centralFoodId(food.getCentralFoodId())
+                    .foodName(food.getFoodName())
+                    .previousAmount(previousAmount)
+                    .decreasedBy(quantityToDeduct)
+                    .remainingAmount(remainingAmount)
+                    .build());
+        }
+
+        return FoodDecreaseResponse.builder()
+                .orderId(order.getOrderId())
+                .decreasedFoods(details)
+                .build();
+    }
+
 
     @Transactional(readOnly = true)
     public CentralFoodsResponse getFoodById(String id) {
