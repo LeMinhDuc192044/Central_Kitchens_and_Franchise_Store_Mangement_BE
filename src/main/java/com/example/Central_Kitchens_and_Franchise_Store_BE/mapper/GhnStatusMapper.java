@@ -1,5 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.mapper;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.InvoiceStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,14 @@ public class GhnStatusMapper {
                 log.warn("Unknown GHN status: {}", ghnStatus);
                 yield OrderStatus.PENDING;
             }
+        };
+    }
+
+    public InvoiceStatus mapToInvoiceStatus(OrderStatus orderStatus) {
+        return switch (orderStatus) {
+            case DELIVERED                              -> InvoiceStatus.PAID;
+            case CANCELLED, RETURNED, DELIVERY_FAILED  -> InvoiceStatus.CANCELLED;
+            default                                    -> null;
         };
     }
 }

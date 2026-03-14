@@ -1,5 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.mapper;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.ShipInvoiceResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.CentralFoods;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.ShipInvoice;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Shipment;
@@ -133,6 +134,19 @@ public class GhnMapper {
         return shipments.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+    }
+
+    public ShipInvoiceResponse toShipInvoiceResponse(ShipInvoice invoice) {
+        return ShipInvoiceResponse.builder()
+                .shipInvoiceId(invoice.getShipInvoiceId())
+                .shipmentCodeId(invoice.getShipmentCodeId())
+                .ghnOrderCode(invoice.getShipment() != null
+                        ? invoice.getShipment().getGhnOrderCode() : null)
+                .totalPrice(invoice.getTotalPrice())
+                .paymentType(invoice.getPaymentType())
+                .invoiceStatus(invoice.getInvoiceStatus())
+                .paidAt(invoice.getPaidAt())
+                .build();
     }
 
 }

@@ -1,6 +1,8 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.ShipInvoiceResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateDeliveryOrderRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.InvoiceStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentInfo;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.GhnService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -49,5 +51,21 @@ public class DeliveryController {
     public ResponseEntity<?> calculateFeeFromOrder(@PathVariable String orderCode) {
         Map<String, Object> result = ghnService.calculateFeeFromOrder(orderCode);
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/invoices")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<List<ShipInvoiceResponse>> getAllInvoices(
+            @RequestParam(required = false) InvoiceStatus status) {
+        List<ShipInvoiceResponse> invoices = ghnService.getAllInvoices(status);
+        return ResponseEntity.ok(invoices);
+    }
+
+    @GetMapping("/invoices/{shipInvoiceId}")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<ShipInvoiceResponse> getInvoiceById(
+            @PathVariable String shipInvoiceId) {
+        ShipInvoiceResponse invoice = ghnService.getInvoiceById(shipInvoiceId);
+        return ResponseEntity.ok(invoice);
     }
 }

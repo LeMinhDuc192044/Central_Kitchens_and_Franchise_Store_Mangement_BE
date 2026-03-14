@@ -52,7 +52,7 @@ public class VNPayController {
 
     @PostMapping("/debt/{storeId}")
     @Operation(summary = "Create link payment for store's total debt ")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF','MANAGER', 'ADMIN')")
     public ResponseEntity<CreatePaymentResponse> createDebtPayment(
             @PathVariable String storeId,
             HttpServletRequest request) {

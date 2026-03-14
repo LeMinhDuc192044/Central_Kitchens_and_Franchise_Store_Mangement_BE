@@ -1,9 +1,11 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.config.GhnConfig;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.ShipInvoiceResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateDeliveryOrderRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.FoodStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.InvoiceStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipPaymentType;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipServiceType;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
@@ -101,7 +103,8 @@ public class GhnService {
                 .shipInvoiceId(generateShipInvoiceId())
                 .shipmentCodeId(savedShipment.getShipmentCodeId())
                 .paymentType(paymentType)
-                .totalPrice(BigDecimal.ZERO) // Will be updated when fee is calculated
+                .totalPrice(BigDecimal.ZERO)// Will be updated when fee is calculated
+                .invoiceStatus(InvoiceStatus.PENDING)
                 .build();
 
         shipInvoiceRepository.save(shipInvoice);
@@ -202,6 +205,7 @@ public class GhnService {
                     .orElseThrow(() -> new RuntimeException("ShipInvoice not found for shipment: " + shipment.getShipmentCodeId()));
 
             shipInvoice.setTotalPrice(BigDecimal.valueOf(totalFee));
+            shipInvoice.setInvoiceStatus(InvoiceStatus.CALCULATED);
             shipInvoiceRepository.save(shipInvoice);
 
 
@@ -349,5 +353,22 @@ public class GhnService {
             log.error("Unexpected error calling GHN", e);
             throw new RuntimeException("Unexpected GHN error: " + e.getMessage());
         }
+    }
+
+    public List<ShipInvoiceResponse> getAllInvoices(InvoiceStatus status) {
+        List<ShipInvoice> invoices = (status != null)
+                ? shipInvoiceRepository.findByInvoiceStatus(status)
+                : shipInvoiceRepository.findAll();
+
+        return invoices.stream()
+                .map(ghnMapper::toShipInvoiceResponse)
+                .toList();
+    }
+
+    public ShipInvoiceResponse getInvoiceById(String shipInvoiceId) {
+        ShipInvoice invoice = shipInvoiceRepository.findById(shipInvoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Invoice not found: " + shipInvoiceId));
+        return ghnMapper.toShipInvoiceResponse(invoice);
     }
 }
