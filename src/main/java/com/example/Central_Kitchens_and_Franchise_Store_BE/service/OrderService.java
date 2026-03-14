@@ -66,6 +66,7 @@ public class OrderService {
                 .storeId(request.getStoreId())
                 .orderDate(LocalDate.now())
                 .note(request.getNote())
+                .orderDate(request.getOrderDate())
                 .build();
 
         OrderDetail orderDetail = buildOrderDetail(order, request.getOrderDetail());

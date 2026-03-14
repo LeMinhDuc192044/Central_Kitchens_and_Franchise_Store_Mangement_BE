@@ -212,6 +212,7 @@ public class VNPayService {
         payment.setStoreId(storeId);
         paymentRepository.save(payment);
 
+
         log.info("Tạo debt payment: storeId={}, txnRef={}, totalDebt={}", storeId, txnRef, totalAmount);
 
         return CreatePaymentResponse.builder()
@@ -272,21 +273,44 @@ public class VNPayService {
                     franchiseStoreRepository.save(store);
                     log.info("Store {} debt cleared after payment txnRef={}", storeId, txnRef);
                 });
+
+                // ✅ Update paymentStatus + invoice các order PAY_AT_THE_END_OF_MONTH → SUCCESS
+                List<Order> storeOrders = orderRepository.findByStoreId(storeId);
+                storeOrders.stream()
+                        .filter(o -> PaymentStatus.PENDING.equals(o.getPaymentStatus())
+                                && PaymentOption.PAY_AT_THE_END_OF_MONTH.equals(o.getPaymentOption()))
+                        .forEach(o -> {
+                            o.setPaymentStatus(PaymentStatus.SUCCESS);
+                            orderRepository.save(o);
+
+                            // ✅ Update invoice của từng order
+                            orderInvoiceRepository.findByOrderId(o.getOrderId()).ifPresent(invoice -> {
+                                invoice.setInvoiceStatus("PAID");
+                                invoice.setPaymentType("VNPAY");
+                                invoice.setTotalAmount(BigDecimal.valueOf(o.getOrderDetail().getAmount().longValue()));
+                                invoice.setPaidDate(LocalDate.now());
+                                invoice.setHasPendingTransaction(false);
+                                orderInvoiceRepository.save(invoice);
+                                log.info("Invoice of order {} → PAID after debt payment txnRef={}", o.getOrderId(), txnRef);
+                            });
+
+                            log.info("Order {} paymentStatus → SUCCESS after debt payment txnRef={}", o.getOrderId(), txnRef);
+                        });
             }
 
-            // ── Cập nhật invoice ──────────────────────────────────
+            // ── Cập nhật invoice (PAY_AFTER_ORDER) ───────────────
             if (orderId != null) {
                 orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
                     invoice.setInvoiceStatus("PAID");
                     invoice.setPaymentType("VNPAY");
                     invoice.setTotalAmount(BigDecimal.valueOf(payment.getAmount()));
                     invoice.setPaidDate(LocalDate.now());
-                    invoice.setHasPendingTransaction(false); // ✅ Reset về false sau khi thanh toán xong
+                    invoice.setHasPendingTransaction(false);
                     orderInvoiceRepository.save(invoice);
                     log.info("Invoice updated to PAID for orderId: {}", orderId);
                 });
 
-                // ✅ Cập nhật paymentStatus trên Order
+                // Cập nhật paymentStatus trên Order
                 orderRepository.findById(orderId).ifPresent(order -> {
                     order.setPaymentStatus(PaymentStatus.SUCCESS);
                     orderRepository.save(order);
@@ -296,7 +320,7 @@ public class VNPayService {
         } else {
             payment.setStatus(PaymentStatus.FAILED);
 
-            // ✅ Reset hasPendingTransaction = false nếu thanh toán thất bại
+            // Reset hasPendingTransaction = false nếu thanh toán thất bại
             String orderId = payment.getOrderId();
             if (orderId != null) {
                 orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {

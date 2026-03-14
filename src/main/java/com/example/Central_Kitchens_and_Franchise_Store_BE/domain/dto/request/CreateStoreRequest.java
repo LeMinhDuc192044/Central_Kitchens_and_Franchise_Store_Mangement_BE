@@ -5,7 +5,5 @@ public record CreateStoreRequest(
         String address,
         String district,
         String ward,
-        String managerEmail,
-        Integer revenue,
-        String numberOfContact
+        Integer revenue
 ) {}

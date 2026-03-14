@@ -3,6 +3,7 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.FoodStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Positive;
@@ -33,7 +34,7 @@ public class CentralFoods {
     private BigDecimal amount;
 
     @Column(name = "expiry_date")
-    @PastOrPresent
+    @Future
     private LocalDate expiryDate;
 
     @Column(name = "manufacturing_date")
@@ -67,6 +68,9 @@ public class CentralFoods {
     @ManyToOne
     @JoinColumn(name = "recipe_id", referencedColumnName = "recipe_id", insertable = false, updatable = false)
     private Recipe recipe;
+
+    @Column(name = "central_food_type_id")
+    private String centralFoodTypeId;
 
     @ManyToOne
     @JoinColumn(name = "central_food_type_id", referencedColumnName = "central_food_type_id", insertable = false, updatable = false)

@@ -35,7 +35,7 @@ public class FranchiseStoreService {
 
     @Transactional
     public StoreResponse createStore(CreateStoreRequest request) {
-        String storeId = generateStoreId(); // ✅ Tự generate
+        String storeId = generateStoreId();
 
         FranchiseStore store = FranchiseStore.builder()
                 .storeId(storeId)
@@ -44,16 +44,9 @@ public class FranchiseStoreService {
                 .district(request.district())
                 .ward(request.ward())
                 .revenue(request.revenue())
-                .numberOfContact(request.numberOfContact())
+                .numberOfContact(null)   // sẽ được fill khi staff đăng ký
                 .deptStatus(false)
                 .build();
-
-        if (request.managerEmail() != null && !request.managerEmail().isBlank()) {
-            User manager = userRepository.findByEmail(request.managerEmail())
-                    .orElseThrow(() -> new RuntimeException(
-                            "Không tìm thấy user với email: " + request.managerEmail()));
-            store.assignManager(manager);
-        }
 
         FranchiseStore saved = franchiseStoreRepository.save(store);
 

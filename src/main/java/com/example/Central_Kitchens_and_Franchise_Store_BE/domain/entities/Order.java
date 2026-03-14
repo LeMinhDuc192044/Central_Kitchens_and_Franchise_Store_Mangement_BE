@@ -46,7 +46,6 @@ public class Order {
     @Column(name = "payment_status")
     private PaymentStatus paymentStatus;
 
-    @CreationTimestamp
     @Column(name = "order_date")
     private LocalDate orderDate;
 

@@ -1,20 +1,17 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.config;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStore;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStorePaymentMethod;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.Role;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.User;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.FoodStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.UserRole;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentMethodRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStoreRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RoleRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.UserRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -27,6 +24,8 @@ public class DataInitializer {
     private final PasswordEncoder passwordEncoder;
     private final FranchiseStoreRepository franchiseStoreRepository;
     private final FranchiseStorePaymentMethodRepository paymentMethodRepository;
+    private final CentralFoodCategoryRepository foodCategoryRepository;
+    private final CentralFoodsRepository centralFoodRepository;
 
     @Bean
     CommandLineRunner initTestUser() {
@@ -119,7 +118,35 @@ public class DataInitializer {
                     "store3.manager@centralkitchen.com"
             );
             createPaymentMethodIfNotExists("STORE-D3-001", "CREDIT");
+
+            // ── Food Categories ──────────────────────────────
+            createCategoryIfNotExists("CE_CH_482917", "Chicken");
+            createCategoryIfNotExists("CE_NO_739204", "Noodle");
+            createCategoryIfNotExists("CE_CA_156893", "Cake");
+            createCategoryIfNotExists("CE_BU_904561", "Burger");
+
+// ── Foods: Gà ────────────────────────────────────
+            createFoodIfNotExists("CE_CH_FO_000001", "Gà Phô Mai",                50, 65000, "CE_CH_482917", 8,  20, 500, 15);
+            createFoodIfNotExists("CE_CH_FO_000002", "Cánh Gà Chiên Mắm Tỏi Ớt", 50, 70000, "CE_CH_482917", 6,  18, 350, 12);
+            createFoodIfNotExists("CE_CH_FO_000003", "Gà Sốt Teriyaki",           50, 72000, "CE_CH_482917", 9,  22, 600, 16);
+
+// ── Foods: Mỳ Ý ──────────────────────────────────
+            createFoodIfNotExists("CE_NO_FO_000001", "Mỳ Ý Sốt Bò Bằm",          50, 68000, "CE_NO_739204", 5,  28, 450, 14);
+            createFoodIfNotExists("CE_NO_FO_000002", "Mỳ Ý Cua",                  50, 75000, "CE_NO_739204", 5,  28, 400, 14);
+            createFoodIfNotExists("CE_NO_FO_000003", "Mỳ Ý Tôm Sốt Kem",          50, 78000, "CE_NO_739204", 5,  28, 420, 14);
+
+// ── Foods: Bánh ───────────────────────────────────
+            createFoodIfNotExists("CE_CA_FO_000001", "Bánh Kem Socola",            30, 85000, "CE_CA_156893", 12, 22, 600, 22);
+            createFoodIfNotExists("CE_CA_FO_000002", "Bánh Kem Dâu Tây",           30, 85000, "CE_CA_156893", 10, 20, 550, 20);
+            createFoodIfNotExists("CE_CA_FO_000003", "Bánh Kem Muffin Vani",       30, 55000, "CE_CA_156893", 6,  8,  120, 8);
+
+// ── Foods: Burger ─────────────────────────────────
+            createFoodIfNotExists("CE_BU_FO_000001", "Burger Bò",                  50, 75000, "CE_BU_904561", 10, 14, 320, 14);
+            createFoodIfNotExists("CE_BU_FO_000002", "Burger Gà",                  50, 70000, "CE_BU_904561", 9,  13, 280, 13);
+            createFoodIfNotExists("CE_BU_FO_000003", "Burger Phô Mai",             50, 72000, "CE_BU_904561", 10, 14, 300, 14);
         };
+
+
     }
 
     private void createRoleIfNotExists(UserRole roleName) {
@@ -198,5 +225,47 @@ public class DataInitializer {
                 .build();
 
         userRepository.save(user);
+    }
+
+    private void createCategoryIfNotExists(String id, String name) {
+        if (foodCategoryRepository.existsById(id)) return;
+
+        CentralFoodCategory category = CentralFoodCategory.builder()
+                .centralFoodTypeId(id)
+                .centralFoodTypeName(name)
+                .build();
+
+        foodCategoryRepository.save(category);
+    }
+
+    private void createFoodIfNotExists(
+            String foodId,
+            String foodName,
+            int amount,
+            int unitPrice,
+            String categoryId,
+            int height,   // cm
+            int length,   // cm
+            int weight,   // gram
+            int width     // cm
+    ) {
+        if (centralFoodRepository.existsById(foodId)) return;
+
+        CentralFoods food = CentralFoods.builder()
+                .centralFoodId(foodId)
+                .foodName(foodName)
+                .amount(new BigDecimal(amount))
+                .unitPriceFood(unitPrice)
+                .centralFoodStatus(FoodStatus.AVAILABLE)
+                .manufacturingDate(LocalDate.now())
+                .expiryDate(LocalDate.now().plusDays(30))
+                .height(height)
+                .length(length)
+                .weight(weight)
+                .width(width)
+                .centralFoodTypeId(categoryId)
+                .build();
+
+        centralFoodRepository.save(food);
     }
 }

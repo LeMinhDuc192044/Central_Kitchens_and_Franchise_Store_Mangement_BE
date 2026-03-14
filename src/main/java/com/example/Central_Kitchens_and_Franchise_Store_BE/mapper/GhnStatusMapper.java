@@ -1,5 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.mapper;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.InvoiceStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipmentStatus;
 import lombok.extern.slf4j.Slf4j;
@@ -49,4 +50,12 @@ public class GhnStatusMapper {
     }
 
 
+
+    public InvoiceStatus mapToInvoiceStatus(OrderStatus orderStatus) {
+        return switch (orderStatus) {
+            case DELIVERED                              -> InvoiceStatus.PAID;
+            case CANCELLED, RETURNED, DELIVERY_FAILED  -> InvoiceStatus.CANCELLED;
+            default                                    -> null;
+        };
+    }
 }
