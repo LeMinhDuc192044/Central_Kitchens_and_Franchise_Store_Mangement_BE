@@ -51,6 +51,5 @@ public class CreateDeliveryOrderRequest {
     @NotBlank(message = "Need orderDetail Id to know who order is this?")
     private String orderDetailId;
 
-    @NotEmpty(message = "Food list must not be empty")
-    private Map<String, Integer> foods;
+
 }

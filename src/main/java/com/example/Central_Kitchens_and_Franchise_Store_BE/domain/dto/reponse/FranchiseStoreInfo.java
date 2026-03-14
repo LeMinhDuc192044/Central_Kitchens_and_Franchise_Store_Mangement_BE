@@ -14,7 +14,7 @@ public class FranchiseStoreInfo {
     private String storeName;
     private String address;
     private boolean deptStatus;
-    private String district;
+    private Integer district;
     private String ward;
     private Integer revenue;
     private String numberOfContact;

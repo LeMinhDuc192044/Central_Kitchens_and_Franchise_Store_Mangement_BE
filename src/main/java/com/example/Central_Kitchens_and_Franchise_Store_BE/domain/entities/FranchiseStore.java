@@ -33,6 +33,9 @@ public class FranchiseStore {
     @Column(name = "district")
     private Integer district;
 
+    @Column(name = "province")
+    private String province;
+
     @Column(name = "ward")
     private String ward;
 

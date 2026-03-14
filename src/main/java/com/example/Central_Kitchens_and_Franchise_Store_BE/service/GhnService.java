@@ -78,15 +78,16 @@ public class GhnService {
         }
 
         // Step 3: Validate foods
-        List<CentralFoods> centralFoods = validateAndFetchFoods(request.getFoods());
+        Map<String, Integer> foods = extractFoodsFromOrderDetail(orderDetail);
+        List<CentralFoods> centralFoods = validateAndFetchFoods(foods);
 
         // Step 4: Auto-calculate total weight and max dimensions from food items
-        PackageDimensions dimensions = calculateDimensions(request.getFoods(), centralFoods);
+        PackageDimensions dimensions = calculateDimensions(foods, centralFoods);
         log.info("Calculated package: weight={}g, {}x{}x{}cm",
                 dimensions.weight(), dimensions.length(), dimensions.width(), dimensions.height());
 
         // Step 5: Convert to GHN items
-        List<GhnItem> items = ghnMapper.convertToGhnItems(request.getFoods(), centralFoods);
+        List<GhnItem> items = ghnMapper.convertToGhnItems(foods, centralFoods);
 
         // Step 6: Generate client order code
         String clientOrderCode = generateDeliverOrderId(
@@ -475,5 +476,27 @@ public class GhnService {
         }
 
         return new PackageDimensions(totalWeight, maxLength, maxWidth, maxHeight);
+    }
+
+    private Map<String, Integer> extractFoodsFromOrderDetail(OrderDetail orderDetail) {
+        if (orderDetail.getOrderDetailItems() == null ||
+                orderDetail.getOrderDetailItems().isEmpty()) {
+            throw new IllegalStateException(
+                    "OrderDetail [" + orderDetail.getOrderDetailId() +
+                            "] has no items. Cannot create delivery order.");
+        }
+
+        // Build Map<centralFoodId, quantity> from order detail items
+        Map<String, Integer> foods = orderDetail.getOrderDetailItems().stream()
+                .collect(Collectors.toMap(
+                        OrderDetailItem::getCentralFoodId,
+                        OrderDetailItem::getQuantity,
+                        Integer::sum  // merge if same food appears twice
+                ));
+
+        log.info("Extracted {} food items from OrderDetail [{}]: {}",
+                foods.size(), orderDetail.getOrderDetailId(), foods);
+
+        return foods;
     }
 }
