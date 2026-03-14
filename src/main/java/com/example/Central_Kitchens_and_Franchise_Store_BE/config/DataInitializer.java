@@ -90,31 +90,37 @@ public class DataInitializer {
             createStoreIfNotExists(
                     "STORE-D1-001",
                     "Central Kitchen District 1",
-                    "123 Nguyen Hue St, District 1",
-                    "District 1",
-                    "Ben Nghe Ward",
+                    "123 Nguyễn Huệ",
+                    "Hồ Chí Minh",
+                    1452,           // ← GHN district ID for Quận 1
+                    "20211",        // ← GHN ward code for Bến Nghé
+                    "Bến Nghé",
                     "store1.manager@centralkitchen.com"
             );
             createPaymentMethodIfNotExists("STORE-D1-001", "CREDIT");
 
-            // ── Store 2 - District 2 ──────────────────────────────
+// ── Store 2 - Quận 2, Hồ Chí Minh ────────────────────────────────
             createStoreIfNotExists(
                     "STORE-D2-001",
                     "Central Kitchen District 2",
-                    "456 Tran Nao St, District 2",
-                    "District 2",
-                    "An Khanh Ward",
+                    "456 Trần Não",
+                    "Hồ Chí Minh",
+                    1444,           // ← GHN district ID for Quận 2
+                    "20308",        // ← GHN ward code for An Khánh
+                    "An Khánh",
                     "store2.manager@centralkitchen.com"
             );
             createPaymentMethodIfNotExists("STORE-D2-001", "CREDIT");
 
-            // ── Store 3 - District 3 ──────────────────────────────
+// ── Store 3 - Quận 3, Hồ Chí Minh ────────────────────────────────
             createStoreIfNotExists(
                     "STORE-D3-001",
                     "Central Kitchen District 3",
-                    "789 Vo Van Tan St, District 3",
-                    "District 3",
-                    "Ward 6",
+                    "789 Võ Văn Tần",
+                    "Hồ Chí Minh",
+                    1446,           // ← GHN district ID for Quận 3
+                    "20406",        // ← GHN ward code for Phường 6
+                    "Phường 6",
                     "store3.manager@centralkitchen.com"
             );
             createPaymentMethodIfNotExists("STORE-D3-001", "CREDIT");
@@ -162,7 +168,9 @@ public class DataInitializer {
             String storeId,
             String storeName,
             String address,
-            String district,
+            String province,
+            Integer ghnDistrictId,
+            String ghnWardCode,
             String ward,
             String managerEmail
     ) {
@@ -173,12 +181,17 @@ public class DataInitializer {
         User manager = userRepository.findByEmail(managerEmail)
                 .orElseThrow(() -> new RuntimeException("Manager not found: " + managerEmail));
 
+        // Build full address for GHN delivery
+        String fullAddress = address + ", " + ward + ", " + province;
+
         FranchiseStore store = FranchiseStore.builder()
                 .storeId(storeId)
                 .storeName(storeName)
                 .address(address)
-                .district(district)
-                .ward(ward)
+                .province(province)
+                .district(ghnDistrictId)          // ← Integer GHN district ID
+                .ward(ghnWardCode)                 // ← String GHN ward code
+                .address(fullAddress)          // ← combined for GHN API
                 .revenue(10000000)
                 .deptStatus(false)
                 .numberOfContact(manager.getPhone())
@@ -187,7 +200,6 @@ public class DataInitializer {
         store.assignManager(manager);
         franchiseStoreRepository.save(store);
     }
-
     private void createPaymentMethodIfNotExists(String storeId, String method) {
         boolean exists = paymentMethodRepository
                 .findByStoreIdAndPaymentMethod(storeId, method)

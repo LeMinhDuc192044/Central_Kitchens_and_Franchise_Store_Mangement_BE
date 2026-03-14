@@ -31,7 +31,10 @@ public class FranchiseStore {
     private boolean deptStatus;
 
     @Column(name = "district")
-    private String district;
+    private Integer district;
+
+    @Column(name = "province")
+    private String province;
 
     @Column(name = "ward")
     private String ward;

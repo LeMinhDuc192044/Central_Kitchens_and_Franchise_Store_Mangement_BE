@@ -6,11 +6,11 @@ public record StoreResponse(
         String storeId,
         String storeName,
         String address,
-        String district,
+        Integer district,
         String ward,
+        String province,
         boolean deptStatus,
         Integer revenue,
         String numberOfContact,
-        String managerEmail,
         List<String> paymentMethods
 ) {}
