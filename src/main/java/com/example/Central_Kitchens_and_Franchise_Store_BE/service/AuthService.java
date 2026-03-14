@@ -87,6 +87,7 @@ public class AuthService {
 
         if (store != null) {
             store.assignManager(user);
+            store.setNumberOfContact(user.getPhone());
             franchiseStoreRepository.save(store);
             franchiseStoreInfo = toInfo(store);
         }
