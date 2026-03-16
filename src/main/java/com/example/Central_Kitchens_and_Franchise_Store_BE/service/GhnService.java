@@ -101,6 +101,20 @@ public class GhnService {
                             "Please update the store address first.");
         }
 
+        Order order = orderDetail.getOrder();
+        if (order == null) {
+            throw new ResourceNotFoundException(
+                    "OrderDetail [" + request.getOrderDetailId() + "] has no linked Order.");
+        }
+
+        if (!request.getStoreId().equals(order.getStoreId())) {
+            throw new IllegalArgumentException(
+                    "OrderDetail [" + request.getOrderDetailId() + "] " +
+                            "belongs to store [" + order.getStoreId() + "], " +
+                            "not store [" + request.getStoreId() + "]. " +
+                            "Cannot create delivery for a different store.");
+        }
+
         // Step 3: Validate foods
         Map<String, Integer> foods = extractFoodsFromOrderDetail(orderDetail);
         List<CentralFoods> centralFoods = validateAndFetchFoods(foods);
@@ -151,13 +165,14 @@ public class GhnService {
                 .shipmentCodeId(savedShipment.getShipmentCodeId())
                 .paymentType(paymentType)
                 .totalPrice(BigDecimal.ZERO)
-                .totalPrice(BigDecimal.ZERO)// Will be updated when fee is calculated
                 .invoiceStatus(InvoiceStatus.PENDING)
                 .build();
 
         shipInvoiceRepository.save(shipInvoice);
         log.info("Order created — GHN: {}, ShipInvoice: {}",
                 ghnOrderCode, shipInvoice.getShipInvoiceId());
+
+        calculateFeeFromOrder(ghnOrderCode);
 
         return ghnResponse;
     }
@@ -315,7 +330,7 @@ public class GhnService {
                     .orElseThrow(() -> new RuntimeException("ShipInvoice not found for shipment: " + shipment.getShipmentCodeId()));
 
             shipInvoice.setTotalPrice(BigDecimal.valueOf(totalFee));
-            shipInvoice.setInvoiceStatus(InvoiceStatus.CALCULATED);
+            shipInvoice.setInvoiceStatus(InvoiceStatus.PENDING);
             shipInvoiceRepository.save(shipInvoice);
 
 
@@ -422,7 +437,7 @@ public class GhnService {
         requestBody.put("required_note",     request.getRequired_note());
         requestBody.put("to_name",           request.getTo_name());
         requestBody.put("to_phone",          request.getTo_phone());
-        requestBody.put("to_address",        request.getTo_address());
+        requestBody.put("to_address",        store.getAddress());
         requestBody.put("to_ward_code",      store.getWard());          // ← store
         requestBody.put("to_district_id",    store.getDistrict());      // ← store
         requestBody.put("cod_amount",        request.getCod_amount());

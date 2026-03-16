@@ -35,9 +35,6 @@ public class CreateDeliveryOrderRequest {
     @NotBlank(message = "Phone of the receiver must not be blank!!!")
     private String to_phone;
 
-    @NotBlank(message = "Address of the receiver must not be blank!!!")
-    private String to_address;
-
     private Integer cod_amount;       // Cash on delivery amount
 
     @NotBlank(message = "Store id must not be blank!!!")

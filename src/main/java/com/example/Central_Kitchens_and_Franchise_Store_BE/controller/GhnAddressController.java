@@ -6,13 +6,10 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/address")
+@RequestMapping("/address")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
 public class GhnAddressController {
@@ -22,7 +19,13 @@ public class GhnAddressController {
     @GetMapping("/provinces")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'SUPPLY_COORDINATOR', 'FRANCHISE_STAFF')")
     public ResponseEntity<?> getProvinces() {
-        return ResponseEntity.ok(ghnAddressValidationService.getProvinces());
+        return ResponseEntity.ok(ghnAddressValidationService.getAvailableProvinces());
+    }
+
+    @GetMapping("/provinces/{provinceId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'SUPPLY_COORDINATOR', 'FRANCHISE_STAFF')")
+    public ResponseEntity<?> getProvinceById(@PathVariable Integer provinceId) {
+        return ResponseEntity.ok(ghnAddressValidationService.getProvinceById(provinceId));
     }
 
     @GetMapping("/districts")
@@ -34,6 +37,6 @@ public class GhnAddressController {
     @GetMapping("/wards")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'SUPPLY_COORDINATOR', 'FRANCHISE_STAFF')")
     public ResponseEntity<?> getWards(@RequestParam Integer districtId) {
-        return ResponseEntity.ok(ghnAddressValidationService.getWards(districtId));
+        return ResponseEntity.ok(ghnAddressValidationService.getAvailableWards(districtId));
     }
 }
