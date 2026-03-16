@@ -5,12 +5,14 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.Cr
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentResultResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.VNPayResponseCode;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.VNPayUtil;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -362,22 +364,32 @@ public class VNPayService {
     public PaymentResultResponse refundPayment(String orderId, HttpServletRequest httpRequest) {
         log.info("=== REFUND START (DEV MODE): orderId={}", orderId);
 
+        // ✅ Bắt buộc hủy đơn trước mới được hoàn tiền
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
+
+        if (order.getStatusOrder() != OrderStatus.CANCELLED) {
+            throw new IllegalStateException(
+                    "Chỉ có thể hoàn tiền khi đơn hàng đã bị hủy. Trạng thái hiện tại: "
+                            + order.getStatusOrder());
+        }
+
         Payment payment = paymentRepository.findByOrderId(orderId)
                 .stream()
-                .filter(p -> PaymentStatus.SUCCESS.equals(p.getStatus()))
+                .filter(p -> PaymentStatus.SUCCESS.equals(p.getStatus())
+                        || PaymentStatus.PENDING_REFUND.equals(p.getStatus()))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch SUCCESS cho order: " + orderId));
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy giao dịch hợp lệ để hoàn tiền cho order: " + orderId));
 
         // ✅ DEV MODE: Bỏ qua VNPay API, force REFUNDED trực tiếp
         payment.setStatus(PaymentStatus.REFUNDED);
         paymentRepository.save(payment);
 
         // ✅ Cập nhật Order → REFUNDED
-        orderRepository.findById(orderId).ifPresent(order -> {
-            order.setPaymentStatus(PaymentStatus.REFUNDED);
-            orderRepository.save(order);
-            log.info("Order {} paymentStatus → REFUNDED", orderId);
-        });
+        order.setPaymentStatus(PaymentStatus.REFUNDED);
+        orderRepository.save(order);
+        log.info("Order {} paymentStatus → REFUNDED", orderId);
 
         // ✅ Cập nhật Invoice → REFUNDED
         orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {

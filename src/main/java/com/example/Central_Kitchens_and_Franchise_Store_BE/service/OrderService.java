@@ -194,7 +194,6 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
-    // 8. CANCEL ORDER
     @Transactional
     public OrderResponse cancelOrder(String orderId, String cancelReason) {
         Order order = orderRepository.findById(orderId)
@@ -204,14 +203,15 @@ public class OrderService {
             throw new IllegalStateException("Đơn hàng đã bị hủy rồi");
         }
 
+        // ✅ Cho phép hủy kể cả khi đã thanh toán → đánh dấu chờ hoàn tiền
         if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
-            throw new IllegalStateException("Không thể hủy đơn đã thanh toán. Vui lòng hoàn tiền trước.");
+            order.setPaymentStatus(PaymentStatus.PENDING_REFUND);
+            log.info("Order {} đã thanh toán → hủy và chờ hoàn tiền", orderId);
         }
 
-        // ── Cập nhật status order ─────────────────────────────────
         order.setStatusOrder(OrderStatus.CANCELLED);
         if (cancelReason != null && !cancelReason.isEmpty()) {
-            order.setCancelReason(cancelReason); // ✅ lưu vào cancelReason thay vì note
+            order.setCancelReason(cancelReason);
         }
 
         // ── Nếu là PAY_AT_THE_END_OF_MONTH → xóa debt record ────
@@ -228,7 +228,6 @@ public class OrderService {
             franchiseStorePaymentRecordRepository.deleteAll(debtRecords);
             log.info("Order {} cancelled → deleted {} debt record(s)", orderId, debtRecords.size());
 
-            // Reset deptStatus nếu không còn nợ
             long remainingDebt = franchiseStorePaymentRecordRepository
                     .findByStoreId(order.getStoreId())
                     .stream()

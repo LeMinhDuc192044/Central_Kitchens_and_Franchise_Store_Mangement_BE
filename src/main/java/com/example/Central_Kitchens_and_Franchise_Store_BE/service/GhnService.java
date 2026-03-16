@@ -101,8 +101,9 @@ public class GhnService {
                             "Please update the store address first.");
         }
 
-        Order order = orderDetail.getOrder();
-        if (order == null) {
+
+        Order linkedOrder = orderDetail.getOrder();
+        if (linkedOrder == null) {
             throw new ResourceNotFoundException(
                     "OrderDetail [" + request.getOrderDetailId() + "] has no linked Order.");
         }
