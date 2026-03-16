@@ -3,6 +3,7 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.ShipInvoiceResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateDeliveryOrderRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.InvoiceStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipmentStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentInfo;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentStatusUpdateResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.GhnService;
@@ -40,6 +41,14 @@ public class DeliveryController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/shipments/store/{storeId}")
+    public ResponseEntity<List<ShipmentInfo>> getAllShipmentsByStore(
+            @PathVariable String storeId,
+            @RequestParam(required = false) ShipmentStatus status) {
+        return ResponseEntity.ok(
+                ghnService.getAllShipmentsByStoreId(storeId, status));
+    }
+
     @PutMapping("/shipments/{shipmentId}/sync-status")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     public ResponseEntity<ShipmentStatusUpdateResponse> syncShipmentStatus(
@@ -48,14 +57,14 @@ public class DeliveryController {
     }
 
     @GetMapping("/track/{orderCode}")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'SUPPLY_COORDINATOR', 'FRANCHISE_STAFF')")
     public ResponseEntity<?> trackOrder(@PathVariable String orderCode) {
         Map<String, Object> result = ghnService.trackOrder(orderCode);
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/calculate-fee/{orderCode}")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'SUPPLY_COORDINATOR', 'FRANCHISE_STAFF')")
     public ResponseEntity<?> calculateFeeFromOrder(@PathVariable String orderCode) {
         Map<String, Object> result = ghnService.calculateFeeFromOrder(orderCode);
         return ResponseEntity.ok(result);

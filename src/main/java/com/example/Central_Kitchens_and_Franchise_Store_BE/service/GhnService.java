@@ -5,6 +5,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.Sh
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateDeliveryOrderRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.*;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.InvalidOperationException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentInfo;
@@ -94,6 +95,13 @@ public class GhnService {
         FranchiseStore store = franchiseStoreRepository.findById(request.getStoreId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Store not found: " + request.getStoreId()));
+
+        if (orderDetail.getShipment() != null) {
+            throw new InvalidOperationException(
+                    "OrderDetail [" + request.getOrderDetailId() + "] " +
+                            "already has a shipment [" + orderDetail.getShipment().getShipmentCodeId() + "]. " +
+                            "Cannot create duplicate delivery order.");
+        }
 
         if (store.getDistrict() == null || store.getWard() == null) {
             throw new IllegalStateException(
@@ -194,6 +202,7 @@ public class GhnService {
     }
 
     // ─── TRACK ORDER ──────────────────────────────────────────────────────────
+    @Transactional(readOnly = true)
     public Map<String, Object> trackOrder(String orderCode) {
         String url = ghnConfig.getBaseUrl() + "/shiip/public-api/v2/shipping-order/detail";
 
@@ -208,6 +217,25 @@ public class GhnService {
             log.error("GHN Track Order Error: {}", e.getResponseBodyAsString());
             throw new RuntimeException("GHN API error: " + e.getResponseBodyAsString());
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<ShipmentInfo> getAllShipmentsByStoreId(String storeId,
+                                                       ShipmentStatus status) {
+        log.info("Fetching shipments for storeId: {}, status: {}", storeId, status);
+
+        // Validate store exists
+        franchiseStoreRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Store not found: " + storeId));
+
+        List<Shipment> shipments = (status != null)
+                ? shipmentRepository.findAllByStoreIdAndStatus(storeId, status)
+                : shipmentRepository.findAllByStoreId(storeId);
+
+        log.info("Found {} shipments for store [{}]", shipments.size(), storeId);
+
+        return ghnMapper.convertToDTOList(shipments);
     }
     //------------------------------------------------------------------------------------------------------------------------
     @Transactional
