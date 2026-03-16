@@ -53,6 +53,9 @@ public class Order {
     @Column(name = "status_order")
     private OrderStatus statusOrder;
 
+    @Column(name = "cancel_reason")
+    private String cancelReason;
+
     @Column(name = "store_id_fk")
     private String storeId;
 

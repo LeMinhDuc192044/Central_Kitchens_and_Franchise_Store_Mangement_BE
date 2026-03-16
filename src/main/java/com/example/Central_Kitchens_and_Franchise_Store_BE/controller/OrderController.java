@@ -266,5 +266,19 @@ public class OrderController {
                 orderService.changePaymentOption(orderId, newOption)));
     }
 
+    // GET ALL CANCELLED ORDERS
+    @GetMapping("/cancelled")
+    @Operation(summary = "Get all orders having cancel status")
+    public ResponseEntity<List<OrderResponse>> getAllCancelledOrders() {
+        return ResponseEntity.ok(orderService.getAllCancelledOrders());
+    }
+
+    // GET CANCELLED ORDERS BY STORE ID
+    @GetMapping("/cancelled/store/{storeId}")
+    @Operation(summary = "Get all orders having cancel status by store id")
+    public ResponseEntity<List<OrderResponse>> getCancelledOrdersByStoreId(@PathVariable String storeId) {
+        return ResponseEntity.ok(orderService.getCancelledOrdersByStoreId(storeId));
+    }
+
 
 }

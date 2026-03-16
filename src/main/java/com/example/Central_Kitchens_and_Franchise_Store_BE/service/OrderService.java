@@ -164,12 +164,10 @@ public class OrderService {
         OrderStatus currentStatus = order.getStatusOrder();
         OrderStatus newStatus = updateRequest.getNewStatus();
 
-        // ✅ Bỏ statusValidator.validateTransition(currentStatus, newStatus);
-
         order.setStatusOrder(newStatus);
 
         if (updateRequest.getNote() != null && !updateRequest.getNote().isEmpty()) {
-            order.setNote(updateRequest.getNote());
+            order.setNote(updateRequest.getNote()); // ✅ note của order, không liên quan cancelReason
             log.info("Order {} status change note: {}", orderId, updateRequest.getNote());
         }
 
@@ -210,7 +208,7 @@ public class OrderService {
 
     // 8. CANCEL ORDER
     @Transactional
-    public OrderResponse cancelOrder(String orderId, String reason) {
+    public OrderResponse cancelOrder(String orderId, String cancelReason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
 
@@ -225,8 +223,8 @@ public class OrderService {
         // ── Cập nhật status order ─────────────────────────────────
         order.setStatusOrder(OrderStatus.CANCELLED);
         order.setPaymentStatus(PaymentStatus.CANCELLED);
-        if (reason != null && !reason.isEmpty()) {
-            order.setNote(reason);
+        if (cancelReason != null && !cancelReason.isEmpty()) {
+            order.setCancelReason(cancelReason); // ✅ lưu vào cancelReason thay vì note
         }
 
         // ── Nếu là PAY_AT_THE_END_OF_MONTH → xóa debt record ────
@@ -267,7 +265,7 @@ public class OrderService {
         });
 
         Order saved = orderRepository.save(order);
-        log.info("Order {} → CANCELLED, reason: {}", orderId, reason);
+        log.info("Order {} → CANCELLED, cancelReason: {}", orderId, cancelReason);
         return toResponse(saved);
     }
 
@@ -442,6 +440,22 @@ public class OrderService {
         return toResponse(saved);
     }
 
+    // GET ALL CANCELLED ORDERS
+    @Transactional
+    public List<OrderResponse> getAllCancelledOrders() {
+        return orderRepository.findByStatusOrder(OrderStatus.CANCELLED).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    // GET CANCELLED ORDERS BY STORE ID
+    @Transactional
+    public List<OrderResponse> getCancelledOrdersByStoreId(String storeId) {
+        return orderRepository.findByStoreIdAndStatusOrder(storeId, OrderStatus.CANCELLED).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     // ==================== HELPER METHODS ====================
 
 
@@ -499,7 +513,8 @@ public class OrderService {
                 .statusOrder(order.getStatusOrder())
                 .storeId(order.getStoreId())
                 .note(order.getNote())
-                .orderDetail(detailResponse) // ✅ Thêm
+                .orderDetail(detailResponse)
+                .cancelReason(order.getCancelReason())// ✅ Thêm
                 .build();
     }
 
