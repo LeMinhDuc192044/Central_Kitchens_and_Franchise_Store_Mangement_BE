@@ -28,5 +28,6 @@ public class OrderResponse {
     private String note;
     private OrderDetailResponse orderDetail;
     private String storeId;
+    private String cancelReason;
 
 }

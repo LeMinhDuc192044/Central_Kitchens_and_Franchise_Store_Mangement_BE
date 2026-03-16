@@ -83,16 +83,32 @@ public class OrderController {
     }
 
 
-    //5. Update order's status
+// OrderController.java
+
+    // 5. Update order's status — bỏ @RequestBody, dùng @RequestParam
     @PutMapping("/{orderId}/status")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR','CENTRAL_KITCHEN_STAFF', 'MANAGER', 'ADMIN')")
-    @Operation(summary = "Update order status", description = "Update the status of an order with validation")
+    @Operation(
+            summary = "Update order status",
+            description = "Update the status of an order. Only valid transitions are allowed."
+    )
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable String orderId,
-            @Valid @RequestBody OrderUpdateRequest updateRequest) {
+            @RequestParam OrderStatus newStatus) {
 
-        OrderResponse response = orderService.updateOrderStatus(orderId, updateRequest);
+        OrderResponse response = orderService.updateOrderStatus(orderId, newStatus);
         return ResponseEntity.ok(response);
+    }
+
+    // Endpoint mới: lấy danh sách status hợp lệ có thể chuyển tiếp
+    @GetMapping("/{orderId}/allowed-status")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR','CENTRAL_KITCHEN_STAFF', 'MANAGER', 'ADMIN')")
+    @Operation(
+            summary = "Get allowed next statuses",
+            description = "Returns the list of valid status transitions from the current order status"
+    )
+    public ResponseEntity<List<OrderStatus>> getAllowedNextStatuses(@PathVariable String orderId) {
+        return ResponseEntity.ok(orderService.getAllowedNextStatuses(orderId));
     }
 
     //6. Cancel order
@@ -264,6 +280,20 @@ public class OrderController {
             @RequestParam PaymentOption newOption) {
         return ResponseEntity.ok(ApiResult.success("Đổi payment option thành công",
                 orderService.changePaymentOption(orderId, newOption)));
+    }
+
+    // GET ALL CANCELLED ORDERS
+    @GetMapping("/cancelled")
+    @Operation(summary = "Get all orders having cancel status")
+    public ResponseEntity<List<OrderResponse>> getAllCancelledOrders() {
+        return ResponseEntity.ok(orderService.getAllCancelledOrders());
+    }
+
+    // GET CANCELLED ORDERS BY STORE ID
+    @GetMapping("/cancelled/store/{storeId}")
+    @Operation(summary = "Get all orders having cancel status by store id")
+    public ResponseEntity<List<OrderResponse>> getCancelledOrdersByStoreId(@PathVariable String storeId) {
+        return ResponseEntity.ok(orderService.getCancelledOrdersByStoreId(storeId));
     }
 
 

@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -36,7 +37,6 @@ public class OrderService {
     private final OrderStatusValidator statusValidator;
     private final OrderIdGenerator orderIdGenerator;
     private final PriorityLevelValidator priorityValidator;
-    private final OrderDetailRepository orderDetailRepository;
     private final OrderInvoiceRepository orderInvoiceRepository;
     private final CentralFoodsRepository centralFoodsRepository;
     private final FranchiseStoreRepository franchiseStoreRepository;
@@ -135,47 +135,33 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
-    // 5. UPDATE ORDER STATUS
-//    @Transactional
-//    public OrderResponse updateOrderStatus(String orderId, OrderUpdateRequest updateRequest) {
-//        Order order = orderRepository.findById(orderId)
-//                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
-//
-//        OrderStatus currentStatus = order.getStatusOrder();
-//        OrderStatus newStatus = updateRequest.getNewStatus();
-//        statusValidator.validateTransition(currentStatus, newStatus);
-//
-//        order.setStatusOrder(newStatus);
-//
-//        if (updateRequest.getNote() != null && !updateRequest.getNote().isEmpty()) {
-//            log.info("Order {} status change note: {}", orderId, updateRequest.getNote());
-//        }
-//
-//        Order savedOrder = orderRepository.save(order);
-//        log.info("Order {} status updated: {} → {}", orderId, currentStatus, newStatus);
-//        return toResponse(savedOrder);
-//    }
+// OrderService.java
 
+    // 5. UPDATE ORDER STATUS — không cần OrderUpdateRequest nữa
     @Transactional
-    public OrderResponse updateOrderStatus(String orderId, OrderUpdateRequest updateRequest) {
+    public OrderResponse updateOrderStatus(String orderId, OrderStatus newStatus) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
 
         OrderStatus currentStatus = order.getStatusOrder();
-        OrderStatus newStatus = updateRequest.getNewStatus();
 
-        // ✅ Bỏ statusValidator.validateTransition(currentStatus, newStatus);
+        // Validate transition hợp lệ
+        statusValidator.validateTransition(currentStatus, newStatus, false);
 
         order.setStatusOrder(newStatus);
-
-        if (updateRequest.getNote() != null && !updateRequest.getNote().isEmpty()) {
-            order.setNote(updateRequest.getNote());
-            log.info("Order {} status change note: {}", orderId, updateRequest.getNote());
-        }
 
         Order savedOrder = orderRepository.save(order);
         log.info("Order {} status updated: {} → {}", orderId, currentStatus, newStatus);
         return toResponse(savedOrder);
+    }
+
+    // Lấy danh sách status hợp lệ tiếp theo của một order
+    @Transactional
+    public List<OrderStatus> getAllowedNextStatuses(String orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
+
+        return new ArrayList<>(statusValidator.getAllowedTransitions(order.getStatusOrder()));
     }
 
     // 6. CẬP NHẬT PRIORITY LEVEL
@@ -210,7 +196,7 @@ public class OrderService {
 
     // 8. CANCEL ORDER
     @Transactional
-    public OrderResponse cancelOrder(String orderId, String reason) {
+    public OrderResponse cancelOrder(String orderId, String cancelReason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
 
@@ -224,9 +210,8 @@ public class OrderService {
 
         // ── Cập nhật status order ─────────────────────────────────
         order.setStatusOrder(OrderStatus.CANCELLED);
-        order.setPaymentStatus(PaymentStatus.CANCELLED);
-        if (reason != null && !reason.isEmpty()) {
-            order.setNote(reason);
+        if (cancelReason != null && !cancelReason.isEmpty()) {
+            order.setCancelReason(cancelReason); // ✅ lưu vào cancelReason thay vì note
         }
 
         // ── Nếu là PAY_AT_THE_END_OF_MONTH → xóa debt record ────
@@ -267,7 +252,7 @@ public class OrderService {
         });
 
         Order saved = orderRepository.save(order);
-        log.info("Order {} → CANCELLED, reason: {}", orderId, reason);
+        log.info("Order {} → CANCELLED, cancelReason: {}", orderId, cancelReason);
         return toResponse(saved);
     }
 
@@ -442,6 +427,22 @@ public class OrderService {
         return toResponse(saved);
     }
 
+    // GET ALL CANCELLED ORDERS
+    @Transactional
+    public List<OrderResponse> getAllCancelledOrders() {
+        return orderRepository.findByStatusOrder(OrderStatus.CANCELLED).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    // GET CANCELLED ORDERS BY STORE ID
+    @Transactional
+    public List<OrderResponse> getCancelledOrdersByStoreId(String storeId) {
+        return orderRepository.findByStoreIdAndStatusOrder(storeId, OrderStatus.CANCELLED).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     // ==================== HELPER METHODS ====================
 
 
@@ -452,13 +453,12 @@ public class OrderService {
         OrderDetail orderDetail = OrderDetail.builder()
                 .orderDetailId(orderDetailId)
                 .orderId(order.getOrderId())
-                // ✅ Bỏ storeId
                 .amount(BigDecimal.ZERO)
                 .build();
 
         for (OrderDetailItemRequest itemRequest : request.getItems()) {
             OrderDetailItem item = buildOrderDetailItem(orderDetail, itemRequest);
-            orderDetail.addOrderDetailItem(item); // ← amount tự sync trong addOrderDetailItem
+            orderDetail.addOrderDetailItem(item);
         }
 
         return orderDetail;
@@ -476,9 +476,9 @@ public class OrderService {
                 .orderDetailItemId(IdGeneratorUtil.generateOrderDetailItemId())
                 .orderDetailId(orderDetail.getOrderDetailId())
                 .centralFoodId(centralFood.getCentralFoodId())
-                .foodName(centralFood.getFoodName())  // snapshot
+                .foodName(centralFood.getFoodName())
                 .quantity(request.getQuantity())
-                .unitPrice(unitPrice)                 // snapshot
+                .unitPrice(unitPrice)
                 .totalAmount(totalAmount)
                 .build();
     }
@@ -499,7 +499,8 @@ public class OrderService {
                 .statusOrder(order.getStatusOrder())
                 .storeId(order.getStoreId())
                 .note(order.getNote())
-                .orderDetail(detailResponse) // ✅ Thêm
+                .orderDetail(detailResponse)
+                .cancelReason(order.getCancelReason())// ✅ Thêm
                 .build();
     }
 

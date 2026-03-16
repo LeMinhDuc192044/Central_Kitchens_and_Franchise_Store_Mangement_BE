@@ -45,26 +45,47 @@ public class VNPayService {
 
     @Transactional
     public CreatePaymentResponse createPaymentUrlByOrder(String orderId, HttpServletRequest httpRequest) {
-        // ✅ Check xem orderId đã từng giao dịch chưa
-        if (paymentRecordRepository.existsByOrderId(orderId)) {
-            throw new RuntimeException("Đơn hàng " + orderId + " đã được tạo giao dịch thanh toán trước đó");
-        }
-
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
 
-        // ✅ Chỉ CREDIT mới được tạo VNPay URL
         if (order.getPaymentMethod() != PaymentMethod.CREDIT) {
-            throw new RuntimeException(
-                    "Đơn hàng " + orderId + " dùng phương thức " + order.getPaymentMethod()
-                            + ". Chỉ CREDIT mới được thanh toán qua VNPay.");
+            throw new RuntimeException("Chỉ CREDIT mới được thanh toán qua VNPay.");
         }
 
         if (!PaymentOption.PAY_AFTER_ORDER.equals(order.getPaymentOption())) {
-            throw new RuntimeException(
-                    "Đơn hàng " + orderId + " không hỗ trợ thanh toán ngay. " +
-                            "Hình thức thanh toán hiện tại: " + order.getPaymentOption()
-            );
+            throw new RuntimeException("Đơn hàng " + orderId + " không hỗ trợ thanh toán ngay.");
+        }
+
+        // ===== NEW: check giao dịch gần nhất theo orderId =====
+        List<PaymentRecord> records = paymentRecordRepository.findAllByOrderId(orderId);
+        PaymentRecord latest = records.stream()
+                .max((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()))
+                .orElse(null);
+
+        if (latest != null) {
+            String st = latest.getStatus();
+
+            if ("SUCCESS".equals(st) || "PAID".equals(st)) {
+                throw new RuntimeException("Đơn hàng " + orderId + " đã thanh toán thành công.");
+            }
+
+            if ("PENDING".equals(st)) {
+                // Nếu muốn cho tạo lại ngay: đóng giao dịch cũ
+                latest.setStatus("EXPIRED");
+                latest.setResponseCode("24");
+                latest.setResponseMessage("Hết thời gian thanh toán, tạo lại giao dịch mới");
+                paymentRecordRepository.save(latest);
+
+                paymentRepository.findByTxnRef(latest.getTxnRef()).ifPresent(p -> {
+                    p.setStatus(PaymentStatus.FAILED); // hoặc EXPIRED nếu enum có
+                    paymentRepository.save(p);
+                });
+
+                orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
+                    invoice.setHasPendingTransaction(false);
+                    orderInvoiceRepository.save(invoice);
+                });
+            }
         }
 
         OrderDetail orderDetail = order.getOrderDetail();
@@ -73,10 +94,7 @@ public class VNPayService {
         }
 
         Long totalAmount = orderDetail.getAmount().longValue();
-
-        if (totalAmount <= 0) {
-            throw new RuntimeException("Đơn hàng không có giá trị");
-        }
+        if (totalAmount <= 0) throw new RuntimeException("Đơn hàng không có giá trị");
 
         String txnRef = VNPayUtil.generateTxnRef();
         String ipAddress = VNPayUtil.getIpAddress(httpRequest);
@@ -102,10 +120,8 @@ public class VNPayService {
         String secureHash = VNPayUtil.hmacSHA512(vnPayProperties.getHashSecret(), hashData);
         vnpParams.put("vnp_SecureHash", secureHash);
 
-        String queryString = VNPayUtil.buildQueryString(vnpParams);
-        String paymentUrl = vnPayProperties.getUrl() + "?" + queryString;
+        String paymentUrl = vnPayProperties.getUrl() + "?" + VNPayUtil.buildQueryString(vnpParams);
 
-        // Lưu Payment
         Payment payment = new Payment();
         payment.setTxnRef(txnRef);
         payment.setAmount(totalAmount);
@@ -113,24 +129,19 @@ public class VNPayService {
         payment.setOrderId(orderId);
         paymentRepository.save(payment);
 
-        // ✅ Lưu PaymentRecord
-        PaymentRecord record = PaymentRecord.builder()
+        PaymentRecord newRecord = PaymentRecord.builder()
                 .orderId(orderId)
                 .txnRef(txnRef)
                 .amount(totalAmount)
                 .status("PENDING")
                 .build();
-        paymentRecordRepository.save(record);
+        paymentRecordRepository.save(newRecord);
 
-        // ✅ Cập nhật hasPendingTransaction = true vào Invoice
         orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
             invoice.setHasPendingTransaction(true);
             invoice.setTxnRef(txnRef);
             orderInvoiceRepository.save(invoice);
-            log.info("Invoice of order {} → hasPendingTransaction=true, txnRef={}", orderId, txnRef);
         });
-
-        log.info("Tạo payment URL: orderId={}, txnRef={}, amount={}", orderId, txnRef, totalAmount);
 
         return CreatePaymentResponse.builder()
                 .txnRef(txnRef)

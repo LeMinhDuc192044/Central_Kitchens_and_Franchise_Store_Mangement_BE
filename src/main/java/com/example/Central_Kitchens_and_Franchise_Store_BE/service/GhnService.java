@@ -66,6 +66,30 @@ public class GhnService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "OrderDetail not found: " + request.getOrderDetailId()));
 
+        // ── Check PaymentOption: PAY_AFTER_ORDER phải thanh toán trước khi tạo đơn giao
+        Order order = orderRepository.findById(orderDetail.getOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Order not found for orderDetail: " + request.getOrderDetailId()));
+
+        if (PaymentOption.PAY_AFTER_ORDER.equals(order.getPaymentOption())
+                && order.getPaymentStatus() != PaymentStatus.SUCCESS) {
+            throw new IllegalStateException(
+                    "Order [" + order.getOrderId() + "] sử dụng PAY_AFTER_ORDER " +
+                            "nhưng chưa thanh toán (current status: " + order.getPaymentStatus() + "). " +
+                            "Vui lòng thanh toán trước khi tạo đơn giao hàng."
+            );
+        }
+
+
+        // ── Check Order phải ở trạng thái COOKING_DONE trước khi tạo đơn giao
+        if (order.getStatusOrder() != OrderStatus.COOKING_DONE) {
+            throw new IllegalStateException(
+                    "Order [" + order.getOrderId() + "] chưa hoàn tất nấu " +
+                            "(current status: " + order.getStatusOrder() + "). " +
+                            "Vui lòng chờ đến khi trạng thái là COOKING_DONE."
+            );
+        }
+
         // Step 2: Find FranchiseStore — delivery destination
         FranchiseStore store = franchiseStoreRepository.findById(request.getStoreId())
                 .orElseThrow(() -> new ResourceNotFoundException(
