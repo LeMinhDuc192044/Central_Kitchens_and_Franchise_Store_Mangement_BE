@@ -9,7 +9,6 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.Up
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStore;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStorePaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStorePaymentRecord;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.User;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentMethodRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentRecordRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStoreRepository;
@@ -44,15 +43,11 @@ public class FranchiseStoreService {
                 request.ward()
         );
 
-        String fullAddress = request.address() + ", " +
-                ghnAddress.getWardName() + ", " +
-                ghnAddress.getDistrictName() + ", " +
-                ghnAddress.getProvinceName();
 
         FranchiseStore store = FranchiseStore.builder()
                 .storeId(storeId)
                 .storeName(request.storeName())
-                .address(fullAddress)       // raw street address
+                .address(request.address())       // raw street address
                 .district(request.district())
                 .province(request.province())
                 .ward(request.ward())

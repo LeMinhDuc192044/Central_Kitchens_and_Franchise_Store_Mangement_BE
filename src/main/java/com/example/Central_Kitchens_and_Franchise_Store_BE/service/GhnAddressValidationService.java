@@ -36,6 +36,65 @@ public class GhnAddressValidationService {
         return (List<Map<String, Object>>) response.getBody().get("data");
     }
 
+    public List<Map<String, Object>> getAvailableProvinces() {
+        List<Map<String, Object>> allProvinces = getProvinces();
+
+        return allProvinces.stream()
+                .filter(province -> {
+                    Integer provinceId = (Integer) province.get("ProvinceID");
+                    try {
+                        // Check if province has at least one available district
+                        List<Map<String, Object>> districts = getDistricts(provinceId);
+                        return districts != null && !districts.isEmpty();
+                    } catch (Exception e) {
+                        log.warn("Province [{}] has no available districts, filtering out",
+                                province.get("ProvinceName"));
+                        return false;
+                    }
+                })
+                .toList();
+    }
+
+    // ── GET ONLY AVAILABLE WARDS (not blocked by GHN) ─────────────────────────
+    public List<Map<String, Object>> getAvailableWards(Integer districtId) {
+        String url = ghnConfig.getBaseUrl() +
+                "/shiip/public-api/master-data/ward?district_id=" + districtId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Token", ghnConfig.getToken());
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+
+            Map<String, Object> body = response.getBody();
+
+            if (body == null || !Integer.valueOf(200).equals(body.get("code"))) {
+                log.warn("No available wards for districtId={}", districtId);
+                return List.of();
+            }
+
+            List<Map<String, Object>> wards = (List<Map<String, Object>>) body.get("data");
+            return wards != null ? wards : List.of();
+
+        } catch (Exception e) {
+            log.warn("Failed to get wards for districtId={}: {}", districtId, e.getMessage());
+            return List.of();
+        }
+    }
+
+    public Map<String, Object> getProvinceById(Integer provinceId) {
+        List<Map<String, Object>> provinces = getProvinces();
+
+        return provinces.stream()
+                .filter(p -> provinceId.equals(p.get("ProvinceID")))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Province not found with ID: " + provinceId +
+                                ". Use GET /api/address/provinces to get valid IDs."));
+    }
+
     // ── GET DISTRICTS BY PROVINCE ID ──────────────────────────────────────
     public List<Map<String, Object>> getDistricts(Integer provinceId) {
         String url = ghnConfig.getBaseUrl() + "/shiip/public-api/master-data/district";
