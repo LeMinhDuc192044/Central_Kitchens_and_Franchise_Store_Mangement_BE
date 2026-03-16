@@ -16,4 +16,5 @@ public interface PaymentRecordRepository extends JpaRepository<PaymentRecord, Lo
     Optional<PaymentRecord> findByTxnRef(String txnRef);        // ← đổi thành Optional
     List<PaymentRecord> findAllByTxnRef(String txnRef);
 
+    List<PaymentRecord> findAllByOrderId(String orderId);
 }
