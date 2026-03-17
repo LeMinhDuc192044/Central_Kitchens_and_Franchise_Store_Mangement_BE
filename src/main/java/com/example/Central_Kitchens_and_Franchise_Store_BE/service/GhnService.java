@@ -17,6 +17,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.util.RandomGeneratorU
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
@@ -99,6 +100,16 @@ public class GhnService {
                             "Cannot create delivery for a different store.");
         }
 
+        Integer codAmount = 0;
+        if (PaymentOption.PAY_AFTER_DELIVERY.equals(order.getPaymentOption())) {
+            codAmount = orderDetail.getAmount() != null
+                    ? orderDetail.getAmount().intValue()
+                    : 0;
+            log.info("PAY_AFTER_DELIVERY — COD amount set to: {}", codAmount);
+        } else {
+            log.info("PaymentOption={} — COD amount set to 0", order.getPaymentOption());
+        }
+
         // Step 3: Validate foods
         Map<String, Integer> foods = extractFoodsFromOrderDetail(orderDetail);
         List<CentralFoods> centralFoods = validateAndFetchFoods(foods);
@@ -114,11 +125,10 @@ public class GhnService {
         // Step 6: Generate client order code
         String clientOrderCode = generateDeliverOrderId(
                 request.getPayment_type_id(),
-                request.getService_type_id()
+                2
         );
-
         // Step 7: Call GHN API
-        Map<String, Object> ghnResponse = callGhnCreateOrderApi(request, items, clientOrderCode, store, dimensions);
+        Map<String, Object> ghnResponse = callGhnCreateOrderApi(request, items, clientOrderCode, store, dimensions, codAmount);
 
         // Step 8: Extract GHN response data
         Map<String, Object> data = (Map<String, Object>) ghnResponse.get("data");
@@ -127,7 +137,7 @@ public class GhnService {
         ShipmentStatus newShipmentStatus = ghnStatusMapper.toShipmentStatus(ghnStatus);
 
         // Step 9: Save Shipment
-        Shipment shipment = buildShipmentPayload(request, items, store, dimensions, clientOrderCode);
+        Shipment shipment = buildShipmentPayload(request, items, store, dimensions, clientOrderCode, codAmount);
         shipment.setShipmentCodeId(clientOrderCode);
         shipment.setGhnOrderCode(ghnOrderCode);
         shipment.setOrderDetailId(orderDetail.getOrderDetailId());
@@ -275,6 +285,48 @@ public class GhnService {
                 .build();
     }
 
+    @Scheduled(fixedDelay = 30000)
+    @Transactional
+    public void syncShipmentStatuses() {
+        // Only sync active shipments — no point checking delivered/cancelled
+        List<ShipmentStatus> activeStatuses = List.of(
+                ShipmentStatus.READY_TO_PICK,
+                ShipmentStatus.PICKING,
+                ShipmentStatus.PICKED,
+                ShipmentStatus.DELIVERING,
+                ShipmentStatus.DELIVERY_FAILED,
+                ShipmentStatus.WAITING_TO_RETURN
+        );
+
+        List<Shipment> activeShipments = shipmentRepository
+                .findAllByShipStatusIn(activeStatuses);
+
+        if (activeShipments.isEmpty()) {
+            log.debug("No active shipments to sync");
+            return;
+        }
+
+        log.info("Syncing {} active shipments...", activeShipments.size());
+
+        int updated = 0;
+        int failed  = 0;
+
+        for (Shipment shipment : activeShipments) {
+            try {
+                boolean wasUpdated = syncSingleShipment(shipment);
+                if (wasUpdated) updated++;
+
+            } catch (Exception e) {
+                failed++;
+                log.error("Failed to sync shipment [{}]: {}",
+                        shipment.getShipmentCodeId(), e.getMessage());
+            }
+        }
+
+        log.info("Sync complete — updated: {}, failed: {}, unchanged: {}",
+                updated, failed, activeShipments.size() - updated - failed);
+    }
+
     // ─── CALCULATE FEE ────────────────────────────────────────────────────────
     @Transactional
     public Map<String, Object> calculateFeeFromOrder(String orderCode) {
@@ -368,6 +420,66 @@ public class GhnService {
 
     //----------------------------SUPPORTING FUNCTION----------------------------------------------------------------------
 
+    private boolean syncSingleShipment(Shipment shipment) {
+        // Step 1: Get live status from GHN
+        Map<String, Object> trackResponse = trackOrder(
+                shipment.getGhnOrderCode());
+
+        if (trackResponse == null ||
+                !Integer.valueOf(200).equals(trackResponse.get("code"))) {
+            log.warn("GHN returned non-200 for shipment [{}]",
+                    shipment.getShipmentCodeId());
+            return false;
+        }
+
+        Map<String, Object> data = (Map<String, Object>) trackResponse.get("data");
+        String ghnStatus = (String) data.get("status");
+
+        if (ghnStatus == null) {
+            log.warn("GHN returned null status for shipment [{}]",
+                    shipment.getShipmentCodeId());
+            return false;
+        }
+
+        // Step 2: Map to your enum
+        ShipmentStatus newShipmentStatus = ghnStatusMapper.toShipmentStatus(ghnStatus);
+        OrderStatus newOrderStatus       = ghnStatusMapper.toOrderStatus(ghnStatus);
+
+        // Step 3: Compare with DB — only update if different
+        if (newShipmentStatus.equals(shipment.getShipStatus())) {
+            log.debug("Shipment [{}] status unchanged: {}",
+                    shipment.getShipmentCodeId(), newShipmentStatus);
+            return false;
+        }
+
+        log.info("Shipment [{}] status changed: {} → {} (GHN: {})",
+                shipment.getShipmentCodeId(),
+                shipment.getShipStatus(),
+                newShipmentStatus,
+                ghnStatus);
+
+        // Step 4: Update Shipment
+        shipment.setShipStatus(newShipmentStatus);
+        shipment.setUpdatedAt(LocalDateTime.now());
+        shipmentRepository.save(shipment);
+
+        // Step 5: Update linked Order status
+        if (shipment.getOrderDetailId() != null) {
+            orderDetailRepository.findByOrderDetailId(shipment.getOrderDetailId())
+                    .ifPresent(orderDetail -> {
+                        Order order = orderDetail.getOrder();
+                        if (order != null) {
+                            order.setStatusOrder(newOrderStatus);
+                            orderRepository.save(order);
+                            log.info("Order [{}] statusOrder → {}",
+                                    order.getOrderId(), newOrderStatus);
+                        }
+                    });
+        }
+
+        return true;
+    }
+
     private List<CentralFoods> validateAndFetchFoods(Map<String, Integer> foods) {
 
         List<String> foodIds = new ArrayList<>(foods.keySet());
@@ -402,27 +514,23 @@ public class GhnService {
                                           List<GhnItem> items,
                                           FranchiseStore store,
                                           PackageDimensions dim,
-                                          String clientOrderCode) {
-        ShipServiceType serviceType = switch (request.getService_type_id()) {
-            case 1 -> ShipServiceType.EXPRESS;
-            case 2 -> ShipServiceType.STANDARD;
-            default -> throw new RuntimeException("Invalid service_type_id: " + request.getService_type_id());
-        };
+                                          String clientOrderCode,
+                                          Integer codAmount) {
 
         return Shipment.builder()
                 .note(request.getNote())
-                .required_note(request.getRequired_note())
+                .required_note(RequiredNote.CHOXEMHANGKHONGTHU)
                 .to_name(request.getTo_name())
                 .to_phone(request.getTo_phone())
                 .to_address(store.getAddress())        // ← from store
                 .to_ward_code(store.getWard())             // ← from store
                 .to_district_id(store.getDistrict())       // ← from store
-                .cod_amount(request.getCod_amount())
+                .cod_amount(codAmount)
                 .weight(dim.weight())                      // ← calculated
                 .length(dim.length())                      // ← calculated
                 .width(dim.width())                        // ← calculated
                 .height(dim.height())                      // ← calculated
-                .service_type(serviceType)
+                .service_type(ShipServiceType.STANDARD)
                 .items(items)
                 .client_order_code(clientOrderCode)
                 .build();
@@ -432,24 +540,25 @@ public class GhnService {
                                                       List<GhnItem> items,
                                                       String clientOrderCode,
                                                       FranchiseStore store,
-                                                      PackageDimensions dim) {
+                                                      PackageDimensions dim,
+                                                      Integer codAmount) {
         String url = ghnConfig.getBaseUrl() + "/shiip/public-api/v2/shipping-order/create";
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("payment_type_id",   request.getPayment_type_id());
         requestBody.put("note",              request.getNote());
-        requestBody.put("required_note",     request.getRequired_note());
+        requestBody.put("required_note",     RequiredNote.CHOXEMHANGKHONGTHU.name());
         requestBody.put("to_name",           request.getTo_name());
         requestBody.put("to_phone",          request.getTo_phone());
         requestBody.put("to_address",        store.getAddress());
         requestBody.put("to_ward_code",      store.getWard());          // ← store
         requestBody.put("to_district_id",    store.getDistrict());      // ← store
-        requestBody.put("cod_amount",        request.getCod_amount());
+        requestBody.put("cod_amount",        codAmount);
         requestBody.put("weight",            dim.weight());             // ← calculated
         requestBody.put("length",            dim.length());             // ← calculated
         requestBody.put("width",             dim.width());              // ← calculated
         requestBody.put("height",            dim.height());             // ← calculated
-        requestBody.put("service_type_id",   request.getService_type_id());
+        requestBody.put("service_type_id",   (Integer) 2);
         requestBody.put("items",             items);
         requestBody.put("client_order_code", clientOrderCode);
 
