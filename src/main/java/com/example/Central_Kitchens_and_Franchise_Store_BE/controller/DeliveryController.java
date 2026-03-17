@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -32,6 +33,16 @@ public class DeliveryController {
     public ResponseEntity<List<ShipmentInfo>> getAllShipments() {
         List<ShipmentInfo> shipments = ghnService.getAllShipments();
         return ResponseEntity.ok(shipments);
+    }
+
+    @PostMapping("/scheduler/sync-now")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<?> triggerSyncNow() {
+        ghnService.syncShipmentStatuses();
+        return ResponseEntity.ok(Map.of(
+                "message", "Sync triggered successfully",
+                "triggeredAt", LocalDateTime.now().toString()
+        ));
     }
 
     @PostMapping("/create-order")

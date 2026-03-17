@@ -50,6 +50,7 @@ public class FranchiseStoreService {
                 .address(request.address())       // raw street address
                 .district(request.district())
                 .province(request.province())
+                .numberOfContact(request.numberOfContact())
                 .ward(request.ward())
                 .district(ghnAddress.getDistrictId())  // ← GHN district ID
                 .ward(ghnAddress.getWardCode())       // ← GHN ward code

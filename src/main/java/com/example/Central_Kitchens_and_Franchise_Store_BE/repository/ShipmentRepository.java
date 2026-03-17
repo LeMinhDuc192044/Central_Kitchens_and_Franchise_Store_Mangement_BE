@@ -31,4 +31,7 @@ public interface ShipmentRepository extends JpaRepository<Shipment, String> {
     List<Shipment> findAllByStoreIdAndStatus(
             @Param("storeId") String storeId,
             @Param("status") ShipmentStatus status);
+
+    List<Shipment> findAllByShipStatusIn(List<ShipmentStatus> statuses);
+
 }

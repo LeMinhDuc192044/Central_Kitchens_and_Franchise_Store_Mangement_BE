@@ -26,24 +26,14 @@ public class CreateDeliveryOrderRequest {
 
     private String note;
 
-    @NotNull(message = "Required note must not be blank and should be 'CHOTHUHANG', 'CHOXEMHANGKHONGTHU', 'KHONGCHOXEMHANG'")
-    private RequiredNote required_note;     // CHOTHUHANG, CHOXEMHANGKHONGTHU, KHONGCHOXEMHANG
-
     @NotBlank(message = "Name of the receiver must not be blank!!!")
     private String to_name;
 
     @NotBlank(message = "Phone of the receiver must not be blank!!!")
     private String to_phone;
 
-    private Integer cod_amount;       // Cash on delivery amount
-
     @NotBlank(message = "Store id must not be blank!!!")
     private String storeId;
-
-    @NotNull
-    @Min(1)
-    @Max(2)
-    private Integer service_type_id;  // 1=Express, 2=Standard
 
     @NotBlank(message = "Need orderDetail Id to know who order is this?")
     private String orderDetailId;
