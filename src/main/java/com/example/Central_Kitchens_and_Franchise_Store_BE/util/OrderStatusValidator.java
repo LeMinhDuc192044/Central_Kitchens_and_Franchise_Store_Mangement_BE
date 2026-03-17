@@ -29,7 +29,7 @@ public class OrderStatusValidator {
     static {
         // === KITCHEN FLOW ===
         VALID_TRANSITIONS.put(OrderStatus.PENDING,
-                Set.of(OrderStatus.IN_PROGRESS, OrderStatus.CANCELLED));
+                Set.of(OrderStatus.IN_PROGRESS,OrderStatus.WAITING_FOR_UPDATE, OrderStatus.CANCELLED));
 
         VALID_TRANSITIONS.put(OrderStatus.IN_PROGRESS,
                 Set.of(OrderStatus.COOKING_DONE, OrderStatus.WAITING_FOR_UPDATE, OrderStatus.CANCELLED));
