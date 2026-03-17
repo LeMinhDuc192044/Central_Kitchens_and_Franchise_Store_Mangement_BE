@@ -4,6 +4,7 @@ public enum OrderStatus {
     PENDING,
     IN_PROGRESS,
     CANCELLED,
+    COMPLETED,
     COOKING_DONE,
     WAITING_FOR_UPDATE,
     READY_TO_PICK,      // GHN: ready_to_pick
