@@ -203,10 +203,16 @@ public class OrderService {
             throw new IllegalStateException("Đơn hàng đã bị hủy rồi");
         }
 
-        // ✅ Cho phép hủy kể cả khi đã thanh toán → đánh dấu chờ hoàn tiền
+        // ✅ Chỉ PAY_AFTER_ORDER + đã thanh toán → mới đánh dấu PENDING_REFUND
         if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
-            order.setPaymentStatus(PaymentStatus.PENDING_REFUND);
-            log.info("Order {} đã thanh toán → hủy và chờ hoàn tiền", orderId);
+            if (PaymentOption.PAY_AFTER_ORDER.equals(order.getPaymentOption())) {
+                order.setPaymentStatus(PaymentStatus.PENDING_REFUND);
+                log.info("Order {} (PAY_AFTER_ORDER) đã thanh toán → hủy và chờ hoàn tiền", orderId);
+            } else {
+                // PAY_AT_THE_END_OF_MONTH đã SUCCESS thì không cho hủy
+                throw new IllegalStateException(
+                        "Không thể hủy đơn đã thanh toán với option: " + order.getPaymentOption());
+            }
         }
 
         order.setStatusOrder(OrderStatus.CANCELLED);
