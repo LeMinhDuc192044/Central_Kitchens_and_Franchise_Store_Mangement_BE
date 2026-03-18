@@ -35,6 +35,9 @@ ghn:
  base-url: https://dev-online-gateway.ghn.vn
  token: ${API_TOKEN}
  shop-id: ${SHOP_ID}
+ central-kitchen-district-id: 1528      # Thành phố Thủ Đức
+ central-kitchen-ward-code: "40304"     # Phường Thủ Đức
+ default-service-type-id: 2
 
 springdoc:
     api-docs:

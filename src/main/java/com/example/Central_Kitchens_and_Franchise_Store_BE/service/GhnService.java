@@ -7,6 +7,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.InvalidOperationException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.DeliveryTimeResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.GhnItem;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentInfo;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentStatusUpdateResponse;
@@ -26,6 +27,11 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -246,6 +252,110 @@ public class GhnService {
         log.info("Found {} shipments for store [{}]", shipments.size(), storeId);
 
         return ghnMapper.convertToDTOList(shipments);
+    }
+
+    public Map<String, Object> getExpectedDeliveryTime(Integer fromDistrictId,
+                                                       String fromWardCode,
+                                                       Integer toDistrictId,
+                                                       String toWardCode,
+                                                       Integer serviceTypeId) {
+        String url = ghnConfig.getBaseUrl() +
+                "/shiip/public-api/v2/shipping-order/leadtime";
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("from_district_id", fromDistrictId);
+        body.put("from_ward_code",   fromWardCode);
+        body.put("to_district_id",   toDistrictId);
+        body.put("to_ward_code",     toWardCode);
+        body.put("service_id",       serviceTypeId);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, buildHeaders(true));
+
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            return response.getBody();
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("GHN Expected Delivery Time Error: {}", e.getResponseBodyAsString());
+            throw new RuntimeException("GHN API error: " + e.getResponseBodyAsString());
+        }
+    }
+
+    public DeliveryTimeResponse parseDeliveryTime(Map<String, Object> ghnResponse) {
+
+        if (ghnResponse == null || !Integer.valueOf(200).equals(ghnResponse.get("code"))) {
+            throw new RuntimeException("Invalid GHN response");
+        }
+
+        Map<String, Object> data          = (Map<String, Object>) ghnResponse.get("data");
+        Map<String, Object> leadtimeOrder = (Map<String, Object>) data.get("leadtime_order");
+        Long leadtime                      = ((Number) data.get("leadtime")).longValue();
+
+        String fromEstimate = (String) leadtimeOrder.get("from_estimate_date");
+        String toEstimate   = (String) leadtimeOrder.get("to_estimate_date");
+
+        // ── Parse ISO dates ────────────────────────────────────────────────────
+        DateTimeFormatter isoFormatter     = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
+                .withZone(ZoneOffset.UTC);
+        DateTimeFormatter displayFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                .withZone(ZoneId.of("Asia/Ho_Chi_Minh")); // Vietnam timezone
+        DateTimeFormatter shortFormatter   = DateTimeFormatter.ofPattern("dd/MM")
+                .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+
+        ZonedDateTime fromDateTime = ZonedDateTime.parse(fromEstimate,
+                DateTimeFormatter.ISO_DATE_TIME);
+        ZonedDateTime toDateTime   = ZonedDateTime.parse(toEstimate,
+                DateTimeFormatter.ISO_DATE_TIME);
+
+        // ── Calculate duration ─────────────────────────────────────────────────
+        long totalHours = ChronoUnit.HOURS.between(fromDateTime, toDateTime);
+        long totalDays  = ChronoUnit.DAYS.between(fromDateTime, toDateTime);
+
+        // ── Build summary ──────────────────────────────────────────────────────
+        String summary;
+        if (totalDays == 0) {
+            summary = String.format("Estimated delivery: same day, within %d hours (%s - %s)",
+                    totalHours,
+                    shortFormatter.format(fromDateTime),
+                    shortFormatter.format(toDateTime));
+        } else if (totalDays == 1) {
+            summary = String.format("Estimated delivery: 1 day (%s - %s)",
+                    shortFormatter.format(fromDateTime),
+                    displayFormatter.format(toDateTime));
+        } else {
+            summary = String.format("Estimated delivery: %d days (%s - %s)",
+                    totalDays,
+                    shortFormatter.format(fromDateTime),
+                    displayFormatter.format(toDateTime));
+        }
+
+        return DeliveryTimeResponse.builder()
+                .fromEstimateDate(fromEstimate)
+                .toEstimateDate(toEstimate)
+                .leadtime(leadtime)
+                .deliveryFrom(displayFormatter.format(fromDateTime))
+                .deliveryTo(displayFormatter.format(toDateTime))
+                .totalDays(totalDays)
+                .totalHours(totalHours)
+                .summary(summary)
+                .build();
+    }
+
+    public DeliveryTimeResponse getExpectedDeliveryTimeFromCentralKitchen(
+            String storeId) {
+
+        FranchiseStore franchiseStore = franchiseStoreRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Store not found: " + storeId));
+
+        Map<String, Object> ghnResponse = getExpectedDeliveryTime(
+                ghnConfig.getCentralKitchenDistrictId(),
+                ghnConfig.getCentralKitchenWardCode(),
+                franchiseStore.getDistrict(),
+                franchiseStore.getWard(),
+                2
+        );
+
+        return parseDeliveryTime(ghnResponse);
     }
     //------------------------------------------------------------------------------------------------------------------------
     @Transactional

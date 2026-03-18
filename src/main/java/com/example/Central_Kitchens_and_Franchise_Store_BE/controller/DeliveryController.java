@@ -4,6 +4,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.Sh
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateDeliveryOrderRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.InvoiceStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.ShipmentStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.DeliveryTimeResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentInfo;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.integration.ghn.ShipmentStatusUpdateResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.GhnService;
@@ -43,6 +44,16 @@ public class DeliveryController {
                 "message", "Sync triggered successfully",
                 "triggeredAt", LocalDateTime.now().toString()
         ));
+    }
+
+    @GetMapping("/expected-delivery-time/from-shop")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+
+    public ResponseEntity<DeliveryTimeResponse> getDeliveryTimeFromShop(
+            @RequestParam String storeId) {
+        return ResponseEntity.ok(
+                ghnService.getExpectedDeliveryTimeFromCentralKitchen(
+                        storeId));
     }
 
     @PostMapping("/create-order")
