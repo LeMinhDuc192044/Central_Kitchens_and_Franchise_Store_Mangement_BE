@@ -26,10 +26,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -316,11 +313,17 @@ public class GhnService {
     }
 
     public DeliveryTimeResponse getExpectedDeliveryTimeFromCentralKitchen(
-            String storeId) {
+            String storeId,
+            LocalDate date) {
 
         FranchiseStore franchiseStore = franchiseStoreRepository.findById(storeId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Store not found: " + storeId));
+
+        if(date != null) {
+            return calculateDeliveryFromDate(franchiseStore.getDistrict(),
+                    franchiseStore.getWard(), date);
+        }
 
         Map<String, Object> ghnResponse = getExpectedDeliveryTime(
                 ghnConfig.getCentralKitchenDistrictId(),
@@ -392,6 +395,80 @@ public class GhnService {
                 .orderId(order.getOrderId())
                 .orderStatus(newOrderStatus)
                 .updatedAt(LocalDateTime.now())
+                .build();
+    }
+
+    public DeliveryTimeResponse calculateDeliveryFromDate(
+            Integer toDistrictId,
+            String toWardCode,
+            LocalDate customFromDate) {    // ← your custom start date
+
+        // Step 1: Call GHN to get delivery duration
+        Map<String, Object> ghnResponse = getExpectedDeliveryTime(
+                ghnConfig.getCentralKitchenDistrictId(),
+                ghnConfig.getCentralKitchenWardCode(),
+                toDistrictId,
+                toWardCode,
+                2
+        );
+
+        Map<String, Object> data          = (Map<String, Object>) ghnResponse.get("data");
+        Map<String, Object> leadtimeOrder = (Map<String, Object>) data.get("leadtime_order");
+
+        String fromEstimate = (String) leadtimeOrder.get("from_estimate_date");
+        String toEstimate   = (String) leadtimeOrder.get("to_estimate_date");
+
+        // Step 2: Calculate how many days GHN needs for delivery
+        ZonedDateTime ghnFrom = ZonedDateTime.parse(fromEstimate, DateTimeFormatter.ISO_DATE_TIME);
+        ZonedDateTime ghnTo   = ZonedDateTime.parse(toEstimate,   DateTimeFormatter.ISO_DATE_TIME);
+
+        long deliveryDays  = ChronoUnit.DAYS.between(ghnFrom, ghnTo);   // e.g. 1 day
+        long deliveryHours = ChronoUnit.HOURS.between(ghnFrom, ghnTo);  // e.g. 24 hours
+
+        log.info("GHN delivery duration: {} days ({} hours)", deliveryDays, deliveryHours);
+
+        // Step 3: Apply that duration to your custom date
+        ZonedDateTime vietnamZone = ZonedDateTime.of(
+                customFromDate.atTime(8, 0),          // start at 8:00 AM
+                ZoneId.of("Asia/Ho_Chi_Minh"));
+
+        ZonedDateTime customFromDateTime = vietnamZone;
+        ZonedDateTime customToDateTime   = vietnamZone.plusDays(deliveryDays)
+                .plusHours(deliveryHours % 24);
+
+        // Step 4: Format for display
+        DateTimeFormatter displayFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+        DateTimeFormatter shortFormatter   = DateTimeFormatter.ofPattern("dd/MM")
+                .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+
+        String summary;
+        if (deliveryDays == 0) {
+            summary = String.format(
+                    "Giao hàng dự kiến: trong ngày %s, trong vòng %d giờ",
+                    shortFormatter.format(customFromDateTime), deliveryHours);
+        } else if (deliveryDays == 1) {
+            summary = String.format(
+                    "Giao hàng dự kiến: 1 ngày (%s → %s)",
+                    shortFormatter.format(customFromDateTime),
+                    displayFormatter.format(customToDateTime));
+        } else {
+            summary = String.format(
+                    "Giao hàng dự kiến: %d ngày (%s → %s)",
+                    deliveryDays,
+                    shortFormatter.format(customFromDateTime),
+                    displayFormatter.format(customToDateTime));
+        }
+
+        log.info("Custom delivery window: {} → {} ({} days)",
+                customFromDateTime, customToDateTime, deliveryDays);
+
+        return DeliveryTimeResponse.builder()
+                .deliveryFrom(displayFormatter.format(customFromDateTime))
+                .deliveryTo(displayFormatter.format(customToDateTime))
+                .totalDays(deliveryDays)
+                .totalHours(deliveryHours)
+                .summary(summary)
                 .build();
     }
 
