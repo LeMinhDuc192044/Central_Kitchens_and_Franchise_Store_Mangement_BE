@@ -11,4 +11,8 @@ public class GhnConfig {
     private String baseUrl;
     private String token;
     private String shopId;
+
+    private Integer centralKitchenDistrictId;  // 1461 (Thủ Đức)
+    private String centralKitchenWardCode;     // "20917"
+    private Integer defaultServiceTypeId;
 }
