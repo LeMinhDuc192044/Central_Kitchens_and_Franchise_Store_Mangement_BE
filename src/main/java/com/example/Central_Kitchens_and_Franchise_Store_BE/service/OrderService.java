@@ -57,6 +57,8 @@ public class OrderService {
                             + request.getPaymentMethod());
         }
 
+        LocalDateTime now = LocalDateTime.now();
+
         Order order = Order.builder()
                 .orderId(orderId)
                 .statusOrder(OrderStatus.PENDING)
@@ -67,6 +69,7 @@ public class OrderService {
                 .orderDate(LocalDate.now())
                 .note(request.getNote())
                 .orderDate(request.getOrderDate())
+                .createdAt(now)
                 .build();
 
         OrderDetail orderDetail = buildOrderDetail(order, request.getOrderDetail());
@@ -505,7 +508,8 @@ public class OrderService {
                 .storeId(order.getStoreId())
                 .note(order.getNote())
                 .orderDetail(detailResponse)
-                .cancelReason(order.getCancelReason())// ✅ Thêm
+                .cancelReason(order.getCancelReason())
+                .createdAt(order.getCreatedAt())// ✅ Thêm
                 .build();
     }
 
