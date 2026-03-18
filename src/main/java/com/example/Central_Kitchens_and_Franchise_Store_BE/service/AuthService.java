@@ -207,7 +207,6 @@ public class AuthService {
                 .deptStatus(store.isDeptStatus())
                 .district(store.getDistrict())
                 .ward(store.getWard())
-                .revenue(store.getRevenue())
                 .numberOfContact(store.getNumberOfContact())
                 .build();
     }
@@ -226,6 +225,7 @@ public class AuthService {
     }
 
 
+    @Transactional
     private UserResponse toResponse(User user) {
         return UserResponse.builder()
                 .id(user.getId())
@@ -235,6 +235,7 @@ public class AuthService {
                 .role(user.getRole().getName().name())
                 .active(user.getActive())
                 .createdAt(user.getCreatedAt())
+                .franchiseStoreInfo(toInfo(user.getManagedStore()))
                 .updatedAt(user.getUpdatedAt())
                 .build();
     }
@@ -251,6 +252,7 @@ public class AuthService {
         private String phone;
         private String role;        // e.g. "FRANCHISE_STAFF", "ADMIN"
         private Boolean active;
+        private FranchiseStoreInfo franchiseStoreInfo;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
     }

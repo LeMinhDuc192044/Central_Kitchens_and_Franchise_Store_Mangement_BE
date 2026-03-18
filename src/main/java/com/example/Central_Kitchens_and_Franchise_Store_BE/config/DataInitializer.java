@@ -192,7 +192,6 @@ public class DataInitializer {
                 .district(ghnDistrictId)          // ← Integer GHN district ID
                 .ward(ghnWardCode)                 // ← String GHN ward code
                 .address(fullAddress)          // ← combined for GHN API
-                .revenue(10000000)
                 .deptStatus(false)
                 .numberOfContact(manager.getPhone())
                 .build();

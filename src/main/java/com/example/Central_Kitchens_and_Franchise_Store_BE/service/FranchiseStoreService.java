@@ -54,7 +54,6 @@ public class FranchiseStoreService {
                 .ward(request.ward())
                 .district(ghnAddress.getDistrictId())  // ← GHN district ID
                 .ward(ghnAddress.getWardCode())       // ← GHN ward code
-                .revenue(request.revenue())
                 .numberOfContact(null)   // sẽ được fill khi staff đăng ký
                 .deptStatus(false)
                 .build();
@@ -222,7 +221,6 @@ public class FranchiseStoreService {
                 s.getWard(),
                 s.getProvince(),
                 s.isDeptStatus(),
-                s.getRevenue(),
                 s.getNumberOfContact(),
                 methods
         );
