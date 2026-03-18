@@ -341,14 +341,17 @@ public class GhnService {
     }
 
     public DeliveryTimeResponse getExpectedDeliveryTimeFromCentralKitchen(
-            Integer toDistrictId,
-            String toWardCode) {
+            String storeId) {
+
+        FranchiseStore franchiseStore = franchiseStoreRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Store not found: " + storeId));
 
         Map<String, Object> ghnResponse = getExpectedDeliveryTime(
                 ghnConfig.getCentralKitchenDistrictId(),
                 ghnConfig.getCentralKitchenWardCode(),
-                toDistrictId,
-                toWardCode,
+                franchiseStore.getDistrict(),
+                franchiseStore.getWard(),
                 2
         );
 
