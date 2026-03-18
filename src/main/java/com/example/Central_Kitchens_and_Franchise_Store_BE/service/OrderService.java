@@ -116,6 +116,7 @@ public class OrderService {
         return toResponse(savedOrder);
     }
 
+    @Transactional
     public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
         return orderRepository.findByStatusOrder(status).stream()
                 .map(this::toResponse)

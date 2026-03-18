@@ -3,9 +3,11 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.AggregatePreviewResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.SupplyBatchItemResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.SupplyBatchResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.UpdateBatchItemRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.BatchStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.SupplyBatchRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -30,6 +32,7 @@ public class SupplyService {
 
     private final OrderRepository       orderRepository;
     private final SupplyBatchRepository supplyBatchRepository;
+    private final CentralFoodsRepository centralFoodsRepository;
 
     // ═══════════════════════════════════════════════════════════════
     // 1. PREVIEW - Xem trước tổng hợp cuối ngày mà CHƯA tạo batch
@@ -138,6 +141,68 @@ public class SupplyService {
 
         log.info("[AGGREGATE] Date={} → Created {} batch(es) for {} orders",
                 date, savedBatches.size(), orders.size());
+
+        return savedBatches.stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 2b. RE-AGGREGATE - Xóa batch DRAFT cũ và tổng hợp lại
+    //     Dùng khi đã aggregate rồi nhưng muốn làm lại
+    //     Không cho re-aggregate nếu có batch đã SENT trở đi
+    // ═══════════════════════════════════════════════════════════════
+    @Transactional
+    public List<SupplyBatchResponse> reAggregateDailyOrders(LocalDate date) {
+        List<SupplyBatch> existingBatches = supplyBatchRepository.findByBatchDate(date);
+
+        if (!existingBatches.isEmpty()) {
+            // Nếu bất kỳ batch nào đã SENT, IN_PRODUCTION, DELIVERED → không cho re-aggregate
+            List<SupplyBatch> lockedBatches = existingBatches.stream()
+                    .filter(b -> b.getStatus() == BatchStatus.SENT
+                            || b.getStatus() == BatchStatus.IN_PRODUCTION
+                            || b.getStatus() == BatchStatus.DELIVERED)
+                    .collect(Collectors.toList());
+
+            if (!lockedBatches.isEmpty()) {
+                String lockedIds = lockedBatches.stream()
+                        .map(b -> b.getBatchId() + " [" + b.getStatus() + "]")
+                        .collect(Collectors.joining(", "));
+                throw new IllegalStateException(
+                        "Không thể re-aggregate vì các batch sau đã được gửi hoặc đang sản xuất: "
+                                + lockedIds);
+            }
+
+            // Chỉ có DRAFT hoặc CANCELLED → xóa hết để tạo lại
+            supplyBatchRepository.deleteAll(existingBatches);
+            log.info("[RE-AGGREGATE] Deleted {} old DRAFT batch(es) for date={}", existingBatches.size(), date);
+        }
+
+        // Tạo lại từ đầu — logic giống aggregateDailyOrders
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay   = date.plusDays(1).atStartOfDay();
+
+        List<Order> orders = orderRepository.findByStatusOrderAndCreatedAtBetween(
+                OrderStatus.IN_PROGRESS, startOfDay, endOfDay);
+
+        if (orders.isEmpty()) {
+            throw new IllegalStateException("Không có đơn IN_PROGRESS nào được tạo trong ngày " + date);
+        }
+
+        Map<String, AggregatedFoodData> foodMap = aggregateFoods(orders);
+
+        List<List<AggregatedFoodData>> batchGroups = splitIntoBatches(
+                new ArrayList<>(foodMap.values()), orders);
+
+        List<SupplyBatch> savedBatches = new ArrayList<>();
+        LocalDate batchDate = date;
+
+        for (int i = 0; i < batchGroups.size(); i++) {
+            List<AggregatedFoodData> group = batchGroups.get(i);
+            SupplyBatch batch = buildAndSaveBatch(group, batchDate, i + 1, batchGroups.size());
+            savedBatches.add(batch);
+            batchDate = batchDate.plusDays(1);
+        }
+
+        log.info("[RE-AGGREGATE] Date={} → Created {} new batch(es)", date, savedBatches.size());
 
         return savedBatches.stream().map(this::toResponse).collect(Collectors.toList());
     }
@@ -335,6 +400,71 @@ public class SupplyService {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // 12. EDIT ITEM TRONG BATCH
+    //     Chỉ chỉnh centralFoodId và quantity
+    //     foodName, sourceDetail tự fill lại từ CentralFoods
+    //     Chỉ cho phép edit khi batch đang DRAFT
+    // ═══════════════════════════════════════════════════════════════
+    @Transactional
+    public SupplyBatchResponse editBatchItem(String batchId, String itemId,
+                                             UpdateBatchItemRequest request) {
+        SupplyBatch batch = supplyBatchRepository.findById(batchId)
+                .orElseThrow(() -> new EntityNotFoundException("Batch not found: " + batchId));
+
+        if (batch.getStatus() != BatchStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "Chỉ có thể chỉnh sửa item khi batch ở trạng thái DRAFT. Hiện tại: "
+                            + batch.getStatus());
+        }
+
+        SupplyBatchItem item = batch.getItems().stream()
+                .filter(i -> i.getItemId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Item " + itemId + " không tồn tại trong batch " + batchId));
+
+        // Lấy thông tin món mới từ CentralFoods để fill foodName
+        CentralFoods centralFood = centralFoodsRepository.findById(request.getCentralFoodId())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Không tìm thấy món: " + request.getCentralFoodId()));
+
+        String oldFoodId  = item.getCentralFoodId();
+        int    oldQty     = item.getTotalQuantity();
+
+        // Cập nhật item
+        item.setCentralFoodId(centralFood.getCentralFoodId());
+        item.setFoodName(centralFood.getFoodName());         // tự fill
+        item.setTotalQuantity(request.getQuantity());
+        // Supply đã chỉnh tay → sourceDetail không còn chính xác, ghi rõ đã được điều chỉnh
+        item.setSourceDetail("[Đã chỉnh thủ công bởi Supply] " + item.getSourceDetail());
+
+        // Cập nhật lại totalItems của batch
+        int diff = request.getQuantity() - oldQty;
+        batch.setTotalItems(batch.getTotalItems() + diff);
+
+        // Nếu đổi sang món mới (khác foodId) → cập nhật totalTypes nếu cần
+        if (!oldFoodId.equals(request.getCentralFoodId())) {
+            boolean oldFoodStillExists = batch.getItems().stream()
+                    .anyMatch(i -> i.getCentralFoodId().equals(oldFoodId)
+                            && !i.getItemId().equals(itemId));
+            boolean newFoodAlreadyExists = batch.getItems().stream()
+                    .anyMatch(i -> i.getCentralFoodId().equals(request.getCentralFoodId())
+                            && !i.getItemId().equals(itemId));
+
+            int typesDelta = 0;
+            if (!oldFoodStillExists) typesDelta--;   // món cũ không còn item nào khác → bớt 1 loại
+            if (!newFoodAlreadyExists) typesDelta++;  // món mới chưa có trong batch → thêm 1 loại
+            batch.setTotalTypes(batch.getTotalTypes() + typesDelta);
+        }
+
+        SupplyBatch saved = supplyBatchRepository.save(batch);
+        log.info("[EDIT ITEM] Batch {} | item {} | food: {} → {} | qty: {} → {}",
+                batchId, itemId, oldFoodId, request.getCentralFoodId(), oldQty, request.getQuantity());
+
+        return toResponse(saved);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 11. GET BATCHES BY CREATED AT DATE
     // ═══════════════════════════════════════════════════════════════
     @Transactional
@@ -345,6 +475,47 @@ public class SupplyService {
         return supplyBatchRepository.findByCreatedAtBetween(startOfDay, endOfDay).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 13. REMOVE ITEM KHỎI BATCH
+    //     Xóa 1 item ra khỏi batch DRAFT
+    //     Tự cập nhật lại totalItems và totalTypes của batch
+    //     Không cho xóa nếu batch chỉ còn 1 item — dùng cancelBatch thay thế
+    // ═══════════════════════════════════════════════════════════════
+    @Transactional
+    public SupplyBatchResponse removeItemFromBatch(String batchId, String itemId) {
+        SupplyBatch batch = supplyBatchRepository.findById(batchId)
+                .orElseThrow(() -> new EntityNotFoundException("Batch not found: " + batchId));
+
+        if (batch.getStatus() != BatchStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "Chỉ có thể xóa item khi batch ở trạng thái DRAFT. Hiện tại: "
+                            + batch.getStatus());
+        }
+
+        SupplyBatchItem item = batch.getItems().stream()
+                .filter(i -> i.getItemId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Item " + itemId + " không tồn tại trong batch " + batchId));
+
+        if (batch.getItems().size() == 1) {
+            throw new IllegalStateException(
+                    "Batch chỉ còn 1 item, không thể xóa. Dùng API cancel batch nếu muốn hủy cả batch.");
+        }
+
+        // Cập nhật totalItems và totalTypes trước khi xóa
+        batch.setTotalItems(batch.getTotalItems() - item.getTotalQuantity());
+        batch.setTotalTypes(batch.getTotalTypes() - 1);
+
+        batch.getItems().remove(item);
+
+        SupplyBatch saved = supplyBatchRepository.save(batch);
+        log.info("[REMOVE ITEM] Batch {} → removed item {} (food: {}, qty: {})",
+                batchId, itemId, item.getCentralFoodId(), item.getTotalQuantity());
+
+        return toResponse(saved);
     }
 
     // ═══════════════════════════════════════════════════════════════

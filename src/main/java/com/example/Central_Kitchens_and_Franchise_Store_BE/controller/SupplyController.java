@@ -2,10 +2,12 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.AggregatePreviewResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.SupplyBatchResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.UpdateBatchItemRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.BatchStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.SupplyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -49,6 +51,20 @@ public class SupplyController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
         return ResponseEntity.ok(supplyService.aggregateDailyOrders(date));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2b. RE-AGGREGATE - Xóa batch DRAFT cũ và tổng hợp lại
+    //     POST /supply/re-aggregate?date=2026-03-18
+    //     Dùng khi aggregate rồi nhưng muốn làm lại
+    //     Không cho re-aggregate nếu batch đã SENT trở đi
+    // ─────────────────────────────────────────────────────────────
+    @PostMapping("/re-aggregate")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<List<SupplyBatchResponse>> reAggregateDailyOrders(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        return ResponseEntity.ok(supplyService.reAggregateDailyOrders(date));
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -177,9 +193,35 @@ public class SupplyController {
 
     @GetMapping("/batches/by-created-at")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "get all batches by date create batch")
     public ResponseEntity<List<SupplyBatchResponse>> getBatchesByCreatedAt(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
         return ResponseEntity.ok(supplyService.getBatchesByCreatedAt(date));
+    }
+
+    @PatchMapping("/batches/{batchId}/items/{itemId}")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<SupplyBatchResponse> editBatchItem(
+            @PathVariable String batchId,
+            @PathVariable String itemId,
+            @RequestBody @Valid UpdateBatchItemRequest request) {
+
+        return ResponseEntity.ok(supplyService.editBatchItem(batchId, itemId, request));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 13. REMOVE item khỏi batch
+    //     DELETE /supply/batches/{batchId}/items/{itemId}
+    //     Chỉ được xóa khi batch đang DRAFT
+    //     Không cho xóa nếu batch chỉ còn 1 item
+    // ─────────────────────────────────────────────────────────────
+    @DeleteMapping("/batches/{batchId}/items/{itemId}")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<SupplyBatchResponse> removeItemFromBatch(
+            @PathVariable String batchId,
+            @PathVariable String itemId) {
+
+        return ResponseEntity.ok(supplyService.removeItemFromBatch(batchId, itemId));
     }
 }
