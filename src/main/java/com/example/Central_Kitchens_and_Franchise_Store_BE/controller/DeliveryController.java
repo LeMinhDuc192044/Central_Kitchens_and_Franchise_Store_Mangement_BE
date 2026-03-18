@@ -50,11 +50,10 @@ public class DeliveryController {
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
 
     public ResponseEntity<DeliveryTimeResponse> getDeliveryTimeFromShop(
-            @RequestParam Integer toDistrictId,
-            @RequestParam String toWardCode) {
+            @RequestParam String storeId) {
         return ResponseEntity.ok(
                 ghnService.getExpectedDeliveryTimeFromCentralKitchen(
-                        toDistrictId, toWardCode));
+                        storeId));
     }
 
     @PostMapping("/create-order")
