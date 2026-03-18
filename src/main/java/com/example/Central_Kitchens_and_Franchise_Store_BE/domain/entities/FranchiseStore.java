@@ -39,9 +39,6 @@ public class FranchiseStore {
     @Column(name = "ward")
     private String ward;
 
-    @Column(name = "revenue")
-    private Integer revenue;
-
     @Column(name = "number_of_contact")
     private String numberOfContact;
 

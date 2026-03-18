@@ -10,7 +10,6 @@ public record StoreResponse(
         String ward,
         String province,
         boolean deptStatus,
-        Integer revenue,
         String numberOfContact,
         List<String> paymentMethods
 ) {}
