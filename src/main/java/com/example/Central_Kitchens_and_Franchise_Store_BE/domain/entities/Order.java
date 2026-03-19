@@ -11,6 +11,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 
 @Entity
@@ -53,8 +54,15 @@ public class Order {
     @Column(name = "status_order")
     private OrderStatus statusOrder;
 
+    @Column(name = "cancel_reason")
+    private String cancelReason;
+
     @Column(name = "store_id_fk")
     private String storeId;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 
     @ManyToOne
     @JoinColumn(name = "store_id_fk", referencedColumnName = "store_id",

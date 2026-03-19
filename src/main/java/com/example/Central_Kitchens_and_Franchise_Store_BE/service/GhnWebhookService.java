@@ -34,47 +34,57 @@ public class GhnWebhookService {
 
         log.info("Webhook received: orderCode={}, status={}", ghnOrderCode, ghnStatus);
 
-        // Step 1: Find delivery order by GHN order code
+        // Step 1: Find shipment by GHN order code
         Shipment deliveryOrder = shipmentRepository
                 .findByGhnOrderCode(ghnOrderCode)
                 .orElseThrow(() -> {
-                    log.warn("No delivery order found for GHN code: {}", ghnOrderCode);
-                    return new RuntimeException("Delivery order not found: " + ghnOrderCode);
+                    log.warn("No shipment found for GHN code: {}", ghnOrderCode);
+                    return new RuntimeException("Shipment not found: " + ghnOrderCode);
                 });
 
-        // Step 2: Update delivery order status
-        deliveryOrder.setShipStatus(ShipmentStatus.valueOf(ghnStatus));
-        deliveryOrder.setUpdatedAt(LocalDateTime.now());
-        shipmentRepository.save(deliveryOrder);
-        log.info("DeliveryOrder [{}] status updated to: {}", ghnOrderCode, ghnStatus);
-
-        // Step 3: Map GHN status → your OrderStatus and update kitchen order
-        Order kitchenOrder = deliveryOrder.getOrderDetail().getOrder();
-        if (kitchenOrder != null) {
-            OrderStatus newStatus = ghnStatusMapper.toOrderStatus(ghnStatus);
-            kitchenOrder.setStatusOrder(newStatus);
-            kitchenOrderRepository.save(kitchenOrder);
-            log.info("KitchenOrder [{}] status updated to: {}", kitchenOrder.getOrderId(), newStatus);
-
-            // Step 4: Update ShipInvoice
-            ShipInvoice shipInvoice = deliveryOrder.getShipInvoice();
-            if (shipInvoice != null) {
-                InvoiceStatus newInvoiceStatus = ghnStatusMapper.mapToInvoiceStatus(newStatus);
-
-                if (newInvoiceStatus != null) {
-                    shipInvoice.setInvoiceStatus(newInvoiceStatus);
-
-                    if (newInvoiceStatus == InvoiceStatus.PAID) {
-                        shipInvoice.setPaidAt(LocalDateTime.now());
-                    }
-
-                    shipInvoiceRepository.save(shipInvoice);
-                    log.info("ShipInvoice [{}] status updated to: {}",
-                            shipInvoice.getShipInvoiceId(), newInvoiceStatus);
-                }
-            }
+        // Step 2: Map GHN status string → ShipmentStatus enum (dùng mapper, KHÔNG dùng valueOf)
+        ShipmentStatus newShipmentStatus;
+        OrderStatus newOrderStatus;
+        try {
+            newShipmentStatus = ghnStatusMapper.toShipmentStatus(ghnStatus); // ✅
+            newOrderStatus    = ghnStatusMapper.toOrderStatus(ghnStatus);    // ✅
+        } catch (IllegalArgumentException e) {
+            log.warn("Unrecognized GHN status '{}' for order {} — webhook ignored.", ghnStatus, ghnOrderCode);
+            return; // Không throw, tránh GHN retry vô hạn
         }
 
+        // Step 3: Update Shipment
+        deliveryOrder.setShipStatus(newShipmentStatus);
+        deliveryOrder.setUpdatedAt(LocalDateTime.now());
+        shipmentRepository.save(deliveryOrder);
+        log.info("Shipment [{}] status updated to: {}", ghnOrderCode, newShipmentStatus);
 
+        // Step 4: Update Order
+        Order kitchenOrder = deliveryOrder.getOrderDetail().getOrder();
+        if (kitchenOrder == null) {
+            log.warn("Shipment [{}] has no linked Order — skipping order update.", ghnOrderCode);
+            return;
+        }
+
+        kitchenOrder.setStatusOrder(newOrderStatus);
+        kitchenOrderRepository.save(kitchenOrder);
+        log.info("Order [{}] status updated to: {}", kitchenOrder.getOrderId(), newOrderStatus);
+
+        // Step 5: Update ShipInvoice
+        ShipInvoice shipInvoice = deliveryOrder.getShipInvoice();
+        if (shipInvoice == null) {
+            log.warn("Shipment [{}] has no ShipInvoice — skipping invoice update.", ghnOrderCode);
+            return;
+        }
+
+        InvoiceStatus newInvoiceStatus = ghnStatusMapper.mapToInvoiceStatus(newOrderStatus);
+        if (newInvoiceStatus != null) {
+            shipInvoice.setInvoiceStatus(newInvoiceStatus);
+            if (newInvoiceStatus == InvoiceStatus.PAID) {
+                shipInvoice.setPaidAt(LocalDateTime.now());
+            }
+            shipInvoiceRepository.save(shipInvoice);
+            log.info("ShipInvoice [{}] updated to: {}", shipInvoice.getShipInvoiceId(), newInvoiceStatus);
+        }
     }
 }

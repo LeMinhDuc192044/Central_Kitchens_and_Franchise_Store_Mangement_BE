@@ -2,6 +2,7 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.CentralFoodsResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.FoodDecreaseResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.FoodIncreaseResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsUpdateRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.CentralFoodsService;
@@ -62,6 +63,21 @@ public class CentralFoodsController {
     public ResponseEntity<List<CentralFoodsResponse>> getAllFoods() {
         List<CentralFoodsResponse> foods = centralFoodsService.getAllFoods();
         return ResponseEntity.ok(foods);
+    }
+
+    @Operation(
+            summary = "Increase central foods based on batch",
+            description = "Increase central foods stock based on batch items when batch is DELIVERED"
+    )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF')")
+    @PutMapping("/increase/{batchId}")
+    public ResponseEntity<FoodIncreaseResponse> increaseFoodAmountByBatch(
+            @Parameter(description = "Batch id", required = true)
+            @PathVariable String batchId) {
+
+        FoodIncreaseResponse response = centralFoodsService.increaseFoodAmountByBatch(batchId);
+
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Get food by ID", description = "Retrieve a specific food product by its ID")

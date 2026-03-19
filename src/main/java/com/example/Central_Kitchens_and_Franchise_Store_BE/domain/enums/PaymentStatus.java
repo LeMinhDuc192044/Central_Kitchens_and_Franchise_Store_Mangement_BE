@@ -5,5 +5,6 @@ public enum PaymentStatus {
     SUCCESS,
     FAILED,
     CANCELLED,
-    REFUNDED
+    REFUNDED,
+    PENDING_REFUND // trạng thái trung gian: PENDING → SUCCESS → PENDING_REFUND → REFUNDED
 }

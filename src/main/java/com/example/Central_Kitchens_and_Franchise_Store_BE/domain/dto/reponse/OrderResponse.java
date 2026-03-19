@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -28,5 +29,7 @@ public class OrderResponse {
     private String note;
     private OrderDetailResponse orderDetail;
     private String storeId;
+    private String cancelReason;
+    private LocalDateTime createdAt;
 
 }
