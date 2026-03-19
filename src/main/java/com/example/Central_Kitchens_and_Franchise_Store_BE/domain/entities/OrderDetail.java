@@ -25,9 +25,6 @@ public class OrderDetail {
     @Column(name = "amount")
     private BigDecimal amount;  // ← được tính tự động
 
-    @Column(name = "supply_coordinator_id_fk")
-    private String supplyCoordinatorId;
-
 
     @Column(name = "order_id_fk")
     private String orderId;

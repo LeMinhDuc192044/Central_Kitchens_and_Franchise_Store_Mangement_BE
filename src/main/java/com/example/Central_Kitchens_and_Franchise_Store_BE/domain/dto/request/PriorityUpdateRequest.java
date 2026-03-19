@@ -17,5 +17,4 @@ public class PriorityUpdateRequest {
     @Max(value = 3, message = "Priority level must be between 1 and 3")
     private Integer newPriority;
 
-    private String note;
 }

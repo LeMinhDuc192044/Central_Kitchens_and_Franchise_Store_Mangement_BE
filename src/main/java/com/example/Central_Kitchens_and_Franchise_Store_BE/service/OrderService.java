@@ -57,6 +57,8 @@ public class OrderService {
                             + request.getPaymentMethod());
         }
 
+        LocalDateTime now = LocalDateTime.now();
+
         Order order = Order.builder()
                 .orderId(orderId)
                 .statusOrder(OrderStatus.PENDING)
@@ -67,6 +69,7 @@ public class OrderService {
                 .orderDate(LocalDate.now())
                 .note(request.getNote())
                 .orderDate(request.getOrderDate())
+                .createdAt(now)
                 .build();
 
         OrderDetail orderDetail = buildOrderDetail(order, request.getOrderDetail());
@@ -113,6 +116,7 @@ public class OrderService {
         return toResponse(savedOrder);
     }
 
+    @Transactional
     public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
         return orderRepository.findByStatusOrder(status).stream()
                 .map(this::toResponse)
@@ -135,7 +139,7 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
-// OrderService.java
+
 
     // 5. UPDATE ORDER STATUS — không cần OrderUpdateRequest nữa
     @Transactional
@@ -203,10 +207,16 @@ public class OrderService {
             throw new IllegalStateException("Đơn hàng đã bị hủy rồi");
         }
 
-        // ✅ Cho phép hủy kể cả khi đã thanh toán → đánh dấu chờ hoàn tiền
+        // ✅ Chỉ PAY_AFTER_ORDER + đã thanh toán → mới đánh dấu PENDING_REFUND
         if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
-            order.setPaymentStatus(PaymentStatus.PENDING_REFUND);
-            log.info("Order {} đã thanh toán → hủy và chờ hoàn tiền", orderId);
+            if (PaymentOption.PAY_AFTER_ORDER.equals(order.getPaymentOption())) {
+                order.setPaymentStatus(PaymentStatus.PENDING_REFUND);
+                log.info("Order {} (PAY_AFTER_ORDER) đã thanh toán → hủy và chờ hoàn tiền", orderId);
+            } else {
+                // PAY_AT_THE_END_OF_MONTH đã SUCCESS thì không cho hủy
+                throw new IllegalStateException(
+                        "Không thể hủy đơn đã thanh toán với option: " + order.getPaymentOption());
+            }
         }
 
         order.setStatusOrder(OrderStatus.CANCELLED);
@@ -442,6 +452,29 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
+    // GET ORDERS BY CREATED AT DATE
+    @Transactional
+    public List<OrderResponse> getOrdersByCreatedAt(LocalDate date) {
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay   = date.plusDays(1).atStartOfDay();
+
+        return orderRepository.findByCreatedAtBetween(startOfDay, endOfDay).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    // GET NEW ORDERS TODAY
+    @Transactional
+    public List<OrderResponse> getNewOrdersToday() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay   = today.plusDays(1).atStartOfDay();
+
+        return orderRepository.findByCreatedAtBetween(startOfDay, endOfDay).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     // ==================== HELPER METHODS ====================
 
 
@@ -499,7 +532,8 @@ public class OrderService {
                 .storeId(order.getStoreId())
                 .note(order.getNote())
                 .orderDetail(detailResponse)
-                .cancelReason(order.getCancelReason())// ✅ Thêm
+                .cancelReason(order.getCancelReason())
+                .createdAt(order.getCreatedAt())// ✅ Thêm
                 .build();
     }
 

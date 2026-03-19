@@ -2,20 +2,20 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.CentralFoodsResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.FoodDecreaseResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.FoodIncreaseResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CentralFoodsUpdateRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.BatchStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.CentralFoodsMapper;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodCategoryRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.RecipeRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.RandomGeneratorUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -35,6 +35,7 @@ public class CentralFoodsService {
     private final CentralFoodCategoryRepository centralFoodCategoryRepository;
     private final OrderRepository orderRepository;
     private final RandomGeneratorUtil randomGeneratorUtil;
+    private final SupplyBatchRepository supplyBatchRepository;
 
 
     public CentralFoodsResponse createFood(CentralFoodsRequest foodDTO) {
@@ -119,6 +120,64 @@ public class CentralFoodsService {
                 .build();
     }
 
+    @Transactional
+    public FoodIncreaseResponse increaseFoodAmountByBatch(String batchId) {
+
+        SupplyBatch batch = supplyBatchRepository.findById(batchId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Batch not found with ID: " + batchId));
+
+        // Chỉ cho phép tăng tồn kho khi batch đã DELIVERED
+        // (Central đã sản xuất xong và giao hàng thực tế)
+        if (batch.getStatus() != BatchStatus.PRODUCTION_COMPLETED) {
+            throw new IllegalStateException(
+                    "Chỉ có thể cập nhật tồn kho khi batch ở trạng thái DELIVERED. "
+                            + "Trạng thái hiện tại: " + batch.getStatus());
+        }
+
+        List<SupplyBatchItem> items = batch.getItems();
+
+        if (items == null || items.isEmpty()) {
+            log.warn("No items found in batch ID: {}", batchId);
+            return FoodIncreaseResponse.builder()
+                    .batchId(batchId)
+                    .increasedFoods(List.of())
+                    .build();
+        }
+
+        List<FoodIncreaseResponse.FoodIncreaseDetail> details = new ArrayList<>();
+
+        for (SupplyBatchItem item : items) {
+            String foodId = item.getCentralFoodId();
+            BigDecimal quantityToAdd = BigDecimal.valueOf(item.getTotalQuantity());
+
+            CentralFoods food = foodsRepository.findById(foodId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "CentralFood not found with ID: " + foodId));
+
+            BigDecimal previousAmount = food.getAmount();
+            BigDecimal newAmount = previousAmount.add(quantityToAdd);
+
+            food.setAmount(newAmount);
+            foodsRepository.save(food);
+
+            log.info("Increased food [{}] amount by {}. New total: {}",
+                    food.getFoodName(), quantityToAdd, newAmount);
+
+            details.add(FoodIncreaseResponse.FoodIncreaseDetail.builder()
+                    .centralFoodId(food.getCentralFoodId())
+                    .foodName(food.getFoodName())
+                    .previousAmount(previousAmount)
+                    .increasedBy(quantityToAdd)
+                    .remainingAmount(newAmount)
+                    .build());
+        }
+
+        return FoodIncreaseResponse.builder()
+                .batchId(batchId)
+                .increasedFoods(details)
+                .build();
+    }
 
     @Transactional(readOnly = true)
     public CentralFoodsResponse getFoodById(String id) {
