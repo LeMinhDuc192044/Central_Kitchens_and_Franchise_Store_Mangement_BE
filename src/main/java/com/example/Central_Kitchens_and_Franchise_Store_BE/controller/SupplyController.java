@@ -2,12 +2,16 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.AggregatePreviewResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.SupplyBatchResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateBatchRequest;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.UpdateBatchItemRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.BatchStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.service.SupplyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,9 +27,6 @@ public class SupplyController {
 
     private final SupplyService supplyService;
 
-    // ═══════════════════════════════════════════════════════════════
-    // NHÓM 1 — PREVIEW
-    // ═══════════════════════════════════════════════════════════════
 
     @GetMapping("/preview")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
@@ -36,9 +37,7 @@ public class SupplyController {
         return ResponseEntity.ok(supplyService.previewAggregation(date));
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // NHÓM 2 — TẠO VÀ GỬI CHO CENTRAL
-    // ═══════════════════════════════════════════════════════════════
+
 
     @PostMapping("/aggregate")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
@@ -67,9 +66,6 @@ public class SupplyController {
         return ResponseEntity.ok(supplyService.sendBatchToCentral(batchId));
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // NHÓM 3 — UPDATE STATUS
-    // ═══════════════════════════════════════════════════════════════
 
     @PatchMapping("/batches/{batchId}/status")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
@@ -91,25 +87,25 @@ public class SupplyController {
 
     @GetMapping("/batches")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
-    @Operation(summary = "Lấy lô theo ngày sản xuất (batchDate, format yyyy-MM-dd)")
+    @Operation(summary = "Central Lấy lô theo ngày sản xuất (batchDate, format yyyy-MM-dd)")
     public ResponseEntity<List<SupplyBatchResponse>> getBatchesByDate(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
         return ResponseEntity.ok(supplyService.getBatchesByDate(date));
     }
-    
+
 
     @GetMapping("/batches/by-status")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
-    @Operation(summary = "Lấy lô theo status")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Supply Lấy lô theo status")
     public ResponseEntity<List<SupplyBatchResponse>> getBatchesByStatus(
             @RequestParam BatchStatus status) {
         return ResponseEntity.ok(supplyService.getBatchesByStatus(status));
     }
 
     @GetMapping("/batches/{batchId}")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
-    @Operation(summary = "Lấy chi tiết lô theo ID")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Supply Lấy chi tiết lô theo ID")
     public ResponseEntity<SupplyBatchResponse> getBatchById(
             @PathVariable String batchId) {
         return ResponseEntity.ok(supplyService.getBatchById(batchId));
@@ -132,5 +128,36 @@ public class SupplyController {
             @PathVariable String batchId,
             @RequestParam(required = false, defaultValue = "") String reason) {
         return ResponseEntity.ok(supplyService.cancelBatch(batchId, reason));
+    }
+
+    @PatchMapping("/batches/{batchId}/items/{itemId}")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Chỉnh sửa item trong lô DRAFT (centralFoodId và quantity)")
+    public ResponseEntity<SupplyBatchResponse> editBatchItem(
+            @PathVariable String batchId,
+            @PathVariable String itemId,
+            @RequestBody @Valid UpdateBatchItemRequest request) {
+
+        return ResponseEntity.ok(supplyService.editBatchItem(batchId, itemId, request));
+    }
+
+    @DeleteMapping("/batches/{batchId}/items/{itemId}")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Xóa item khỏi lô DRAFT — nếu còn 1 item thì dùng cancel batch")
+    public ResponseEntity<SupplyBatchResponse> removeItemFromBatch(
+            @PathVariable String batchId,
+            @PathVariable String itemId) {
+
+        return ResponseEntity.ok(supplyService.removeItemFromBatch(batchId, itemId));
+    }
+
+    @PostMapping("/batches/manual")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Tạo lô sản xuất thủ công — supply tự chọn món và số lượng")
+    public ResponseEntity<SupplyBatchResponse> createManualBatch(
+            @RequestBody @Valid CreateBatchRequest request) {
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(supplyService.createManualBatch(request));
     }
 }
