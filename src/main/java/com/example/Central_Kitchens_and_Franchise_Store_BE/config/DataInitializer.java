@@ -93,7 +93,7 @@ public class DataInitializer {
                     "123 Nguyễn Huệ",
                     "Hồ Chí Minh",
                     1452,           // ← GHN district ID for Quận 1
-                    "20211",        // ← GHN ward code for Bến Nghé
+                    "21001",        // ← GHN ward code for Bến Nghé
                     "Bến Nghé",
                     "store1.manager@centralkitchen.com"
             );
