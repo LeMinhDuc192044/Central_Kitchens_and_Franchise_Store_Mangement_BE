@@ -80,4 +80,57 @@ public class SupplyController {
 
         return ResponseEntity.ok(supplyService.updateBatchStatus(batchId, newStatus));
     }
+
+
+    @GetMapping("/batches/all")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Lấy tất cả lô sản xuất")
+    public ResponseEntity<List<SupplyBatchResponse>> getAllBatches() {
+        return ResponseEntity.ok(supplyService.getAllBatches());
+    }
+
+    @GetMapping("/batches")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Lấy lô theo ngày sản xuất (batchDate, format yyyy-MM-dd)")
+    public ResponseEntity<List<SupplyBatchResponse>> getBatchesByDate(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        return ResponseEntity.ok(supplyService.getBatchesByDate(date));
+    }
+    
+
+    @GetMapping("/batches/by-status")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Lấy lô theo status")
+    public ResponseEntity<List<SupplyBatchResponse>> getBatchesByStatus(
+            @RequestParam BatchStatus status) {
+        return ResponseEntity.ok(supplyService.getBatchesByStatus(status));
+    }
+
+    @GetMapping("/batches/{batchId}")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Lấy chi tiết lô theo ID")
+    public ResponseEntity<SupplyBatchResponse> getBatchById(
+            @PathVariable String batchId) {
+        return ResponseEntity.ok(supplyService.getBatchById(batchId));
+    }
+
+    @PatchMapping("/batches/{batchId}/defer")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Dời lịch sản xuất sang ngày khác (chỉ DRAFT)")
+    public ResponseEntity<SupplyBatchResponse> deferBatch(
+            @PathVariable String batchId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate newDate,
+            @RequestParam(required = false, defaultValue = "") String reason) {
+        return ResponseEntity.ok(supplyService.deferBatch(batchId, newDate, reason));
+    }
+
+    @DeleteMapping("/batches/{batchId}")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Hủy lô sản xuất (chỉ DRAFT hoặc SENT)")
+    public ResponseEntity<SupplyBatchResponse> cancelBatch(
+            @PathVariable String batchId,
+            @RequestParam(required = false, defaultValue = "") String reason) {
+        return ResponseEntity.ok(supplyService.cancelBatch(batchId, reason));
+    }
 }

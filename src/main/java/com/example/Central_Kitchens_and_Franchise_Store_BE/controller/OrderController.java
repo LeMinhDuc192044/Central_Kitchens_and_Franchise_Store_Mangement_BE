@@ -288,6 +288,7 @@ public class OrderController {
     // GET ALL CANCELLED ORDERS
     @GetMapping("/cancelled")
     @Operation(summary = "Get all orders having cancel status")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     public ResponseEntity<List<OrderResponse>> getAllCancelledOrders() {
         return ResponseEntity.ok(orderService.getAllCancelledOrders());
     }
@@ -295,6 +296,7 @@ public class OrderController {
     // GET CANCELLED ORDERS BY STORE ID
     @GetMapping("/cancelled/store/{storeId}")
     @Operation(summary = "Get all orders having cancel status by store id")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     public ResponseEntity<List<OrderResponse>> getCancelledOrdersByStoreId(@PathVariable String storeId) {
         return ResponseEntity.ok(orderService.getCancelledOrdersByStoreId(storeId));
     }
@@ -302,6 +304,7 @@ public class OrderController {
     // GET /api/orders/by-created-at?date=2026-03-19
     @GetMapping("/by-created-at")
     @Operation(summary = "Get all orders by date create")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     public ResponseEntity<List<OrderResponse>> getOrdersByCreatedAt(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
@@ -311,8 +314,18 @@ public class OrderController {
     // GET /api/orders/today
     @GetMapping("/today")
     @Operation(summary = "Get all new orders today")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     public ResponseEntity<List<OrderResponse>> getNewOrdersToday() {
         return ResponseEntity.ok(orderService.getNewOrdersToday());
+    }
+
+    @PutMapping("/{orderId}/items")
+    @Operation(summary = "edit item order")
+    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<OrderResponse> editMultipleItems(
+            @PathVariable String orderId,
+            @RequestBody EditOrderItemsRequest request) {
+        return ResponseEntity.ok(orderService.editMultipleOrderDetailItems(orderId, request));
     }
 
 
