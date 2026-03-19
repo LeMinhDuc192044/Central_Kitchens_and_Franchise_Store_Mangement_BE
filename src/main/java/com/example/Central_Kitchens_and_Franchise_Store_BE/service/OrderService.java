@@ -436,6 +436,43 @@ public class OrderService {
         return toResponse(saved);
     }
 
+    @Transactional
+    public OrderResponse editMultipleOrderDetailItems(String orderId, EditOrderItemsRequest request) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
+
+        if (order.getStatusOrder() == OrderStatus.CANCELLED
+                || order.getStatusOrder() == OrderStatus.COMPLETED) {
+            throw new IllegalStateException(
+                    "Không thể chỉnh sửa item vì order đang ở trạng thái: " + order.getStatusOrder());
+        }
+
+        OrderDetail orderDetail = order.getOrderDetail();
+
+        for (EditOrderItemRequest itemRequest : request.getItems()) {
+            OrderDetailItem targetItem = orderDetail.getOrderDetailItems().stream()
+                    .filter(item -> item.getCentralFoodId().equals(itemRequest.getCentralFoodId()))
+                    .findFirst()
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "Item không tồn tại: " + itemRequest.getCentralFoodId()));
+
+            CentralFoods food = centralFoodsRepository.findById(itemRequest.getCentralFoodId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm: " + itemRequest.getCentralFoodId()));
+
+            BigDecimal unitPrice = BigDecimal.valueOf(food.getUnitPriceFood());
+            targetItem.setQuantity(itemRequest.getQuantity());
+            targetItem.setTotalAmount(unitPrice.multiply(BigDecimal.valueOf(itemRequest.getQuantity())));
+        }
+
+        // Recalculate tổng amount
+        BigDecimal newAmount = orderDetail.getOrderDetailItems().stream()
+                .map(OrderDetailItem::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        orderDetail.setAmount(newAmount);
+
+        return toResponse(orderRepository.save(order));
+    }
+
     // GET ALL CANCELLED ORDERS
     @Transactional
     public List<OrderResponse> getAllCancelledOrders() {
