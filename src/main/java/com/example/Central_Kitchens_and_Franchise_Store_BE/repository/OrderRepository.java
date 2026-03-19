@@ -47,4 +47,8 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             LocalDateTime startOfDay,
             LocalDateTime endOfDay,
             Integer priorityLevel);
+
+    List<Order> findByStatusOrderAndOrderDateAndPriorityLevel(OrderStatus orderStatus, LocalDate date, int i);
+
+    List<Order> findByStatusOrderAndOrderDate(OrderStatus orderStatus, LocalDate date);
 }
