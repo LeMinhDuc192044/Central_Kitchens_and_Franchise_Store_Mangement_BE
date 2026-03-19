@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -50,10 +51,11 @@ public class DeliveryController {
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
 
     public ResponseEntity<DeliveryTimeResponse> getDeliveryTimeFromShop(
-            @RequestParam String storeId) {
+            @RequestParam String storeId,
+            @RequestParam(required = false) LocalDate date ) {
         return ResponseEntity.ok(
                 ghnService.getExpectedDeliveryTimeFromCentralKitchen(
-                        storeId));
+                        storeId, date));
     }
 
     @PostMapping("/create-order")
