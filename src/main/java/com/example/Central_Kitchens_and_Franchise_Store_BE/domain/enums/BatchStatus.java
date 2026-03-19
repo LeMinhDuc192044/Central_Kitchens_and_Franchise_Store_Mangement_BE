@@ -6,6 +6,6 @@ public enum BatchStatus {
     DRAFT,
     SENT,
     IN_PRODUCTION,
-    DELIVERED,
+    PRODUCTION_COMPLETED,
     CANCELLED
 }

@@ -15,7 +15,6 @@ public class AggregatePreviewResponse {
     private Integer estimatedBatchCount;
     private String warning;
     private List<AggregatedFoodItem> aggregatedItems;
-    private List<SupplyBatchResponse> proposedBatches;
 
     @Data
     @NoArgsConstructor
@@ -25,6 +24,6 @@ public class AggregatePreviewResponse {
         private String centralFoodId;
         private String foodName;
         private Integer totalQuantity;
-        private String sourceDetail;   // "STORE-A: 20, STORE-B: 15"
+        private String sourceDetail;
     }
 }

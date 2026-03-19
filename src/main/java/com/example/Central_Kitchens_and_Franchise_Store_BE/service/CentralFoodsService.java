@@ -129,7 +129,7 @@ public class CentralFoodsService {
 
         // Chỉ cho phép tăng tồn kho khi batch đã DELIVERED
         // (Central đã sản xuất xong và giao hàng thực tế)
-        if (batch.getStatus() != BatchStatus.DELIVERED) {
+        if (batch.getStatus() != BatchStatus.PRODUCTION_COMPLETED) {
             throw new IllegalStateException(
                     "Chỉ có thể cập nhật tồn kho khi batch ở trạng thái DELIVERED. "
                             + "Trạng thái hiện tại: " + batch.getStatus());

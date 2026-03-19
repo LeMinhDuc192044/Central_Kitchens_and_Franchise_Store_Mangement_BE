@@ -45,16 +45,15 @@ public class SupplyService {
         LocalDateTime endOfDay   = date.plusDays(1).atStartOfDay();
 
         List<Order> orders = orderRepository.findByStatusOrderAndCreatedAtBetween(
-                OrderStatus.WAITING_FOR_UPDATE, startOfDay, endOfDay);
+                OrderStatus.WAITING_FOR_PRODUCTION, startOfDay, endOfDay);
 
         if (orders.isEmpty()) {
             return AggregatePreviewResponse.builder()
                     .totalTypes(0)
                     .totalQuantity(0)
                     .estimatedBatchCount(0)
-                    .warning("Không có đơn WAITING_FOR_UPDATE nào được tạo trong ngày " + date)
+                    .warning("Không có đơn WAITING_FOR_PRODUCTION nào được tạo trong ngày " + date)
                     .aggregatedItems(Collections.emptyList())
-                    .proposedBatches(Collections.emptyList())
                     .build();
         }
 
@@ -82,9 +81,6 @@ public class SupplyService {
                         .build())
                 .collect(Collectors.toList());
 
-        // Build proposed batches preview (không lưu DB)
-        List<SupplyBatchResponse> proposedBatches = buildProposedBatchPreviews(batchGroups, date);
-
         log.info("[PREVIEW] Date={} | {} orders | {} types | {} items | {} batches needed",
                 date, orders.size(), totalTypes, totalQuantity, estimatedBatchCount);
 
@@ -94,7 +90,6 @@ public class SupplyService {
                 .estimatedBatchCount(estimatedBatchCount)
                 .warning(warning)
                 .aggregatedItems(aggregatedItems)
-                .proposedBatches(proposedBatches)
                 .build();
     }
 
@@ -108,13 +103,11 @@ public class SupplyService {
         LocalDateTime endOfDay   = date.plusDays(1).atStartOfDay();
 
         List<Order> orders = orderRepository.findByStatusOrderAndCreatedAtBetween(
-                OrderStatus.IN_PROGRESS, startOfDay, endOfDay);
+                OrderStatus.WAITING_FOR_PRODUCTION, startOfDay, endOfDay);
 
         if (orders.isEmpty()) {
-            throw new IllegalStateException("Không có đơn IN_PROGRESS nào được tạo trong ngày " + date);
+            throw new IllegalStateException("Không có đơn WAITING_FOR_PRODUCTION nào được tạo trong ngày " + date);
         }
-
-        // Kiểm tra đã tạo batch cho ngày này chưa
         List<SupplyBatch> existingBatches = supplyBatchRepository.findByBatchDate(date);
         if (!existingBatches.isEmpty()) {
             throw new IllegalStateException(
@@ -159,7 +152,7 @@ public class SupplyService {
             List<SupplyBatch> lockedBatches = existingBatches.stream()
                     .filter(b -> b.getStatus() == BatchStatus.SENT
                             || b.getStatus() == BatchStatus.IN_PRODUCTION
-                            || b.getStatus() == BatchStatus.DELIVERED)
+                            || b.getStatus() == BatchStatus.PRODUCTION_COMPLETED)
                     .collect(Collectors.toList());
 
             if (!lockedBatches.isEmpty()) {
@@ -181,10 +174,10 @@ public class SupplyService {
         LocalDateTime endOfDay   = date.plusDays(1).atStartOfDay();
 
         List<Order> orders = orderRepository.findByStatusOrderAndCreatedAtBetween(
-                OrderStatus.IN_PROGRESS, startOfDay, endOfDay);
+                OrderStatus.WAITING_FOR_PRODUCTION, startOfDay, endOfDay);
 
         if (orders.isEmpty()) {
-            throw new IllegalStateException("Không có đơn IN_PROGRESS nào được tạo trong ngày " + date);
+            throw new IllegalStateException("Không có đơn WAITING_FOR_PRODUCTION nào được tạo trong ngày " + date);
         }
 
         Map<String, AggregatedFoodData> foodMap = aggregateFoods(orders);
@@ -219,10 +212,10 @@ public class SupplyService {
 
         List<Order> highPriorityOrders = orderRepository
                 .findByStatusOrderAndCreatedAtBetweenAndPriorityLevel(
-                        OrderStatus.IN_PROGRESS, startOfDay, endOfDay, 1);
+                        OrderStatus.WAITING_FOR_PRODUCTION, startOfDay, endOfDay, 1);
 
         if (highPriorityOrders.isEmpty()) {
-            throw new IllegalStateException("Không có đơn HIGH priority nào được tạo trong ngày " + date);
+            throw new IllegalStateException("Không có đơn HIGH priority nào với status WAITING_FOR_PRODUCTION trong ngày " + date);
         }
 
         Map<String, AggregatedFoodData> foodMap = aggregateFoods(highPriorityOrders);
@@ -377,9 +370,9 @@ public class SupplyService {
                 .orElseThrow(() -> new EntityNotFoundException("Batch not found: " + batchId));
 
         if (batch.getStatus() == BatchStatus.IN_PRODUCTION
-                || batch.getStatus() == BatchStatus.DELIVERED) {
+                || batch.getStatus() == BatchStatus.PRODUCTION_COMPLETED) {
             throw new IllegalStateException(
-                    "Không thể huỷ batch đang sản xuất hoặc đã giao. Trạng thái: " + batch.getStatus());
+                    "Không thể huỷ batch đang sản xuất hoặc đã hoàn thành. Trạng thái: " + batch.getStatus());
         }
 
         batch.setStatus(BatchStatus.CANCELLED);
@@ -392,9 +385,15 @@ public class SupplyService {
         return toResponse(saved);
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // 11. GET BATCHES BY CREATED AT DATE
+    // ═══════════════════════════════════════════════════════════════
     @Transactional
-    public List<SupplyBatchResponse> getAllBatches() {
-        return supplyBatchRepository.findAll().stream()
+    public List<SupplyBatchResponse> getBatchesByCreatedAt(LocalDate date) {
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay   = date.plusDays(1).atStartOfDay();
+
+        return supplyBatchRepository.findByCreatedAtBetween(startOfDay, endOfDay).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -484,19 +483,6 @@ public class SupplyService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 11. GET BATCHES BY CREATED AT DATE
-    // ═══════════════════════════════════════════════════════════════
-    @Transactional
-    public List<SupplyBatchResponse> getBatchesByCreatedAt(LocalDate date) {
-        LocalDateTime startOfDay = date.atStartOfDay();
-        LocalDateTime endOfDay   = date.plusDays(1).atStartOfDay();
-
-        return supplyBatchRepository.findByCreatedAtBetween(startOfDay, endOfDay).stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    // ═══════════════════════════════════════════════════════════════
     // 13. REMOVE ITEM KHỎI BATCH
     //     Xóa 1 item ra khỏi batch DRAFT
     //     Tự cập nhật lại totalItems và totalTypes của batch
@@ -536,10 +522,6 @@ public class SupplyService {
 
         return toResponse(saved);
     }
-
-    // ═══════════════════════════════════════════════════════════════
-    // PRIVATE HELPERS
-    // ═══════════════════════════════════════════════════════════════
 
     /**
      * Gom tất cả order items theo foodId.
@@ -709,49 +691,16 @@ public class SupplyService {
                 batchCount);
     }
 
-    private List<SupplyBatchResponse> buildProposedBatchPreviews(
-            List<List<AggregatedFoodData>> batchGroups, LocalDate startDate) {
-
-        List<SupplyBatchResponse> result = new ArrayList<>();
-        LocalDate date = startDate;
-
-        for (int i = 0; i < batchGroups.size(); i++) {
-            List<AggregatedFoodData> group = batchGroups.get(i);
-            int qty   = group.stream().mapToInt(f -> f.totalQty).sum();
-            int types = group.size();
-
-            List<SupplyBatchItemResponse> itemResponses = group.stream()
-                    .map(f -> SupplyBatchItemResponse.builder()
-                            .centralFoodId(f.centralFoodId)
-                            .foodName(f.foodName)
-                            .totalQuantity(f.totalQty)
-                            .sourceDetail(f.buildSourceDetailString())
-                            .build())
-                    .collect(Collectors.toList());
-
-            result.add(SupplyBatchResponse.builder()
-                    .batchId("PREVIEW-BATCH-" + (i + 1))
-                    .batchDate(date)
-                    .status(BatchStatus.DRAFT)
-                    .totalItems(qty)
-                    .totalTypes(types)
-                    .note(String.format("Preview batch %d/%d", i + 1, batchGroups.size()))
-                    .items(itemResponses)
-                    .build());
-
-            date = date.plusDays(1);
-        }
-
-        return result;
-    }
-
     private void validateBatchStatusTransition(BatchStatus current, BatchStatus next) {
+        // DRAFT → SENT → IN_PRODUCTION → PRODUCTION_COMPLETED
+        // DRAFT → CANCELLED
+        // SENT  → CANCELLED
         Map<BatchStatus, Set<BatchStatus>> allowed = Map.of(
-                BatchStatus.DRAFT,         Set.of(BatchStatus.SENT, BatchStatus.CANCELLED),
-                BatchStatus.SENT,          Set.of(BatchStatus.IN_PRODUCTION, BatchStatus.CANCELLED),
-                BatchStatus.IN_PRODUCTION, Set.of(BatchStatus.DELIVERED),
-                BatchStatus.DELIVERED,     Set.of(),
-                BatchStatus.CANCELLED,     Set.of()
+                BatchStatus.DRAFT,                Set.of(BatchStatus.SENT, BatchStatus.CANCELLED),
+                BatchStatus.SENT,                 Set.of(BatchStatus.IN_PRODUCTION, BatchStatus.CANCELLED),
+                BatchStatus.IN_PRODUCTION,        Set.of(BatchStatus.PRODUCTION_COMPLETED),
+                BatchStatus.PRODUCTION_COMPLETED, Set.of(),
+                BatchStatus.CANCELLED,            Set.of()
         );
 
         if (!allowed.getOrDefault(current, Set.of()).contains(next)) {
