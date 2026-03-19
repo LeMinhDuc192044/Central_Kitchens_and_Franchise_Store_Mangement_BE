@@ -202,6 +202,7 @@ public class SupplyController {
 
     @PatchMapping("/batches/{batchId}/items/{itemId}")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "edit item in the batch")
     public ResponseEntity<SupplyBatchResponse> editBatchItem(
             @PathVariable String batchId,
             @PathVariable String itemId,
@@ -218,6 +219,7 @@ public class SupplyController {
     // ─────────────────────────────────────────────────────────────
     @DeleteMapping("/batches/{batchId}/items/{itemId}")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "remove item from the batch")
     public ResponseEntity<SupplyBatchResponse> removeItemFromBatch(
             @PathVariable String batchId,
             @PathVariable String itemId) {

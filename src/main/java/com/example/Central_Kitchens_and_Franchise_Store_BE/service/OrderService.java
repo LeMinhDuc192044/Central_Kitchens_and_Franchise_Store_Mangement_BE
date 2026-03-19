@@ -452,6 +452,29 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
+    // GET ORDERS BY CREATED AT DATE
+    @Transactional
+    public List<OrderResponse> getOrdersByCreatedAt(LocalDate date) {
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay   = date.plusDays(1).atStartOfDay();
+
+        return orderRepository.findByCreatedAtBetween(startOfDay, endOfDay).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    // GET NEW ORDERS TODAY
+    @Transactional
+    public List<OrderResponse> getNewOrdersToday() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay   = today.plusDays(1).atStartOfDay();
+
+        return orderRepository.findByCreatedAtBetween(startOfDay, endOfDay).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     // ==================== HELPER METHODS ====================
 
 

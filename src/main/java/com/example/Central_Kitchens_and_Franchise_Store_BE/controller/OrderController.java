@@ -19,11 +19,14 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 import java.util.List;
 
 
@@ -294,6 +297,22 @@ public class OrderController {
     @Operation(summary = "Get all orders having cancel status by store id")
     public ResponseEntity<List<OrderResponse>> getCancelledOrdersByStoreId(@PathVariable String storeId) {
         return ResponseEntity.ok(orderService.getCancelledOrdersByStoreId(storeId));
+    }
+
+    // GET /api/orders/by-created-at?date=2026-03-19
+    @GetMapping("/by-created-at")
+    @Operation(summary = "Get all orders by date create")
+    public ResponseEntity<List<OrderResponse>> getOrdersByCreatedAt(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        return ResponseEntity.ok(orderService.getOrdersByCreatedAt(date));
+    }
+
+    // GET /api/orders/today
+    @GetMapping("/today")
+    @Operation(summary = "Get all new orders today")
+    public ResponseEntity<List<OrderResponse>> getNewOrdersToday() {
+        return ResponseEntity.ok(orderService.getNewOrdersToday());
     }
 
 

@@ -32,6 +32,8 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             LocalDate end
     );
 
+    List<Order> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+
     // ✅ Dùng trong SupplyService.aggregateDailyOrders() và previewAggregation()
     //    Query theo ngày TẠO ĐƠN (createdAt), không phải ngày nhận hàng (orderDate)
     List<Order> findByStatusOrderAndCreatedAtBetween(

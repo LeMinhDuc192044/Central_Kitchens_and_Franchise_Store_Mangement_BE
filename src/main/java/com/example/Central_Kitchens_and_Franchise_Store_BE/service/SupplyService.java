@@ -439,8 +439,17 @@ public class SupplyService {
         item.setSourceDetail("[Đã chỉnh thủ công bởi Supply] " + item.getSourceDetail());
 
         // Cập nhật lại totalItems của batch
-        int diff = request.getQuantity() - oldQty;
-        batch.setTotalItems(batch.getTotalItems() + diff);
+        int diff          = request.getQuantity() - oldQty;
+        int newTotalItems = batch.getTotalItems() + diff;
+
+        // ✅ Validate giới hạn số lượng Central Kitchen
+        if (newTotalItems > MAX_QUANTITY_PER_DAY) {
+            throw new IllegalArgumentException(String.format(
+                    "Không thể chỉnh sửa: tổng số món sau khi edit là %d, vượt giới hạn %d món/ngày.",
+                    newTotalItems, MAX_QUANTITY_PER_DAY));
+        }
+
+        batch.setTotalItems(newTotalItems);
 
         // Nếu đổi sang món mới (khác foodId) → cập nhật totalTypes nếu cần
         if (!oldFoodId.equals(request.getCentralFoodId())) {
@@ -452,9 +461,19 @@ public class SupplyService {
                             && !i.getItemId().equals(itemId));
 
             int typesDelta = 0;
-            if (!oldFoodStillExists) typesDelta--;   // món cũ không còn item nào khác → bớt 1 loại
-            if (!newFoodAlreadyExists) typesDelta++;  // món mới chưa có trong batch → thêm 1 loại
-            batch.setTotalTypes(batch.getTotalTypes() + typesDelta);
+            if (!oldFoodStillExists) typesDelta--;
+            if (!newFoodAlreadyExists) typesDelta++;
+
+            int newTotalTypes = batch.getTotalTypes() + typesDelta;
+
+            // ✅ Validate giới hạn số loại món
+            if (newTotalTypes > MAX_TYPES_PER_DAY) {
+                throw new IllegalArgumentException(String.format(
+                        "Không thể chỉnh sửa: tổng số loại món sau khi edit là %d, vượt giới hạn %d loại/ngày.",
+                        newTotalTypes, MAX_TYPES_PER_DAY));
+            }
+
+            batch.setTotalTypes(newTotalTypes);
         }
 
         SupplyBatch saved = supplyBatchRepository.save(batch);
