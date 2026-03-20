@@ -20,6 +20,5 @@ public class OrderInvoiceResponse {
     private BigDecimal totalAmount;
     private LocalDate paidDate;
     private String orderId;
-    private Boolean hasPendingTransaction; // ← đã có giao dịch PENDING chưa
-    private String txnRef;
+
 }

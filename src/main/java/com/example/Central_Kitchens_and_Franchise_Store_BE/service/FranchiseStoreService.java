@@ -221,8 +221,7 @@ public class FranchiseStoreService {
                 s.getWard(),
                 s.getProvince(),
                 s.isDeptStatus(),
-                s.getNumberOfContact(),
-                methods
+                s.getNumberOfContact()
         );
     }
 
