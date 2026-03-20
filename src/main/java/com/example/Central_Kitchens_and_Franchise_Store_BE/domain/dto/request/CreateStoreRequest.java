@@ -14,6 +14,5 @@ public record CreateStoreRequest(
                 regexp = "^0[0-9]{9}$",
                 message = "Phone number must be 10 digits and start with 0"
         )
-        String numberOfContact,
-        Integer revenue
+        String numberOfContact
 ) {}

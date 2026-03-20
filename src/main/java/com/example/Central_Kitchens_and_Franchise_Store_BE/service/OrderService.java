@@ -84,6 +84,7 @@ public class OrderService {
         OrderInvoice invoice = OrderInvoice.builder()
                 .orderInvoiceId("INV-" + savedOrder.getOrderId())
                 .orderId(orderDetailId)
+                .paymentType(String.valueOf(request.getPaymentMethod()))
                 .invoiceStatus("PENDING")
                 .totalAmount(totalAmount)
                 .build();

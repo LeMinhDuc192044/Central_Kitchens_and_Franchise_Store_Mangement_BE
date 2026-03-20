@@ -315,7 +315,7 @@ public class VNPayService {
             if (orderId != null) {
                 orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
                     invoice.setInvoiceStatus("PAID");
-                    invoice.setPaymentType("VNPAY");
+                    //invoice.setPaymentType("VNPAY");
                     invoice.setTotalAmount(BigDecimal.valueOf(payment.getAmount()));
                     invoice.setPaidDate(LocalDate.now());
                     invoice.setHasPendingTransaction(false);

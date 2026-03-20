@@ -33,10 +33,6 @@ public class OrderInvoiceService {
     private OrderInvoiceResponse mapToResponse(OrderInvoice invoice, String orderId) {
         String realOrderId = orderRepository.findOrderIdByOrderDetailId(invoice.getOrderId());
 
-        // ← đổi sang Optional
-        Optional<PaymentRecord> recordOpt = paymentRecordRepository.findByOrderId(orderId);
-        boolean hasPending = recordOpt.isPresent() && "PENDING".equals(recordOpt.get().getStatus());
-        String txnRef = recordOpt.map(PaymentRecord::getTxnRef).orElse(null);
 
         return OrderInvoiceResponse.builder()
                 .orderInvoiceId(invoice.getOrderInvoiceId())
@@ -45,8 +41,6 @@ public class OrderInvoiceService {
                 .totalAmount(invoice.getTotalAmount())
                 .paidDate(invoice.getPaidDate())
                 .orderId(realOrderId)
-                .hasPendingTransaction(hasPending)
-                .txnRef(txnRef)
                 .build();
     }
 }

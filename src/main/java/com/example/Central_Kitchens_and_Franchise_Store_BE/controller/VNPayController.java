@@ -39,7 +39,7 @@ public class VNPayController {
 
     @GetMapping("/vnpay-return")
     @Operation(summary = "VNPay callback after payment")
-    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF','SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    //@PreAuthorize("hasAnyRole('FRANCHISE_STAFF','SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     public void vnPayReturn(HttpServletRequest request, HttpServletResponse response) throws IOException {
         // 1) Vẫn xử lý nghiệp vụ (update payment/order/invoice)
         vnPayService.processVNPayReturn(request);

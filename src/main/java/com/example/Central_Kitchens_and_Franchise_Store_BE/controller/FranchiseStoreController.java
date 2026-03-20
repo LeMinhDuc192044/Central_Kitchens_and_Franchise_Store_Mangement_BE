@@ -50,18 +50,6 @@ public class FranchiseStoreController {
     }
 
 
-    @PutMapping("/{storeId}/payment-method")
-    @Operation(summary = "change/add franchise store's payment method")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<PaymentMethodResponse> updatePaymentMethod(
-            @PathVariable String storeId,
-            @RequestBody UpdatePaymentMethodRequest request) {
-
-        return ResponseEntity.ok(
-                franchiseStoreService.updatePaymentMethod(storeId, request));
-    }
-
-
     @PostMapping("/payment-records")
     @Operation(summary = "create debt record")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'SUPPLY_COORDINATOR')")
@@ -92,12 +80,5 @@ public class FranchiseStoreController {
         return ResponseEntity.ok(franchiseStoreService.updateDebtStatus(storeId, debtStatus));
     }
 
-
-    @PostMapping("/{storeId}/pay-debt-cash")
-    @PreAuthorize("hasAnyRole('FRANCHISE_STAFF', 'MANAGER', 'ADMIN')")
-    @Operation(summary = "Pay total store debt by cash - clear all debt records and set deptStatus = false")
-    public ResponseEntity<StoreResponse> payDebtByCash(@PathVariable String storeId) {
-        return ResponseEntity.ok(franchiseStoreService.payDebtByCash(storeId));
-    }
 
 }
