@@ -31,22 +31,16 @@ public class OrderInvoice {
     @Column(name = "paid_date")
     private LocalDate paidDate;
 
-    @Column(name = "payment_record_id_fk")
-    private String paymentRecordId;
 
     @Column(name = "order_id_fk")
     private String orderId;
 
-    // ✅ THÊM 2 field này
-    @Column(name = "has_pending_transaction")
-    private Boolean hasPendingTransaction = false;
-
-    @Column(name = "txn_ref")
-    private String txnRef;
-
     @OneToOne
     @JoinColumn(name = "order_id_fk", referencedColumnName = "order_detail_id", insertable = false, updatable = false)
     private OrderDetail orderDetail;
+
+    @Column(name = "payment_record_id_fk") // 👈 thêm column này để ghi FK
+    private String paymentRecordId;
 
     @ManyToOne
     @JoinColumn(name = "payment_record_id_fk", referencedColumnName = "payment_record_id", insertable = false, updatable = false)

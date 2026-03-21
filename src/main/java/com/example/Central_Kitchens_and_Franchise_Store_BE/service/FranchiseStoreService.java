@@ -7,9 +7,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.Cr
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.CreateStoreRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.UpdatePaymentMethodRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStore;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStorePaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStorePaymentRecord;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentMethodRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentRecordRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStoreRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.UserRepository;
@@ -30,7 +28,6 @@ public class FranchiseStoreService {
     private final FranchiseStoreRepository franchiseStoreRepository;
     private final UserRepository userRepository;
     private final FranchiseStorePaymentRecordRepository paymentRecordRepository;
-    private final FranchiseStorePaymentMethodRepository paymentMethodRepository;
     private final GhnAddressValidationService ghnAddressValidationService;
 
     @Transactional
@@ -60,11 +57,6 @@ public class FranchiseStoreService {
 
         FranchiseStore saved = franchiseStoreRepository.save(store);
 
-        FranchiseStorePaymentMethod defaultMethod = new FranchiseStorePaymentMethod();
-        defaultMethod.setStorePaymentId(UUID.randomUUID().toString());
-        defaultMethod.setStoreId(saved.getStoreId());
-        defaultMethod.setPaymentMethod("CREDIT");
-        paymentMethodRepository.save(defaultMethod);
 
         return toStoreResponse(saved);
     }
@@ -91,30 +83,6 @@ public class FranchiseStoreService {
                 .collect(Collectors.toList());
     }
 
-    // ── PAYMENT METHOD ────────────────────────────────────────────────────────────
-
-    @Transactional
-    public PaymentMethodResponse updatePaymentMethod(String storeId,
-                                                     UpdatePaymentMethodRequest request) {
-        if (request.paymentMethod() == null) {
-            throw new IllegalArgumentException("paymentMethod must be CASH or CREDIT.");
-        }
-
-        findStoreOrThrow(storeId);
-
-        String methodValue = request.paymentMethod().name();
-
-        return paymentMethodRepository
-                .findByStoreIdAndPaymentMethod(storeId, methodValue)
-                .map(this::toPaymentMethodResponse)
-                .orElseGet(() -> {
-                    FranchiseStorePaymentMethod pm = new FranchiseStorePaymentMethod();
-                    pm.setStorePaymentId(UUID.randomUUID().toString());
-                    pm.setStoreId(storeId);
-                    pm.setPaymentMethod(methodValue);
-                    return toPaymentMethodResponse(paymentMethodRepository.save(pm));
-                });
-    }
 
     // ── PAYMENT RECORD ────────────────────────────────────────────────────────────
 
@@ -154,43 +122,7 @@ public class FranchiseStoreService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional
-    public StoreResponse payDebtByCash(String storeId) {
-        FranchiseStore store = findStoreOrThrow(storeId);
 
-        // ✅ Check paymentMethod của store phải là CASH
-        List<String> storeMethods = paymentMethodRepository.findByStoreId(storeId)
-                .stream()
-                .map(FranchiseStorePaymentMethod::getPaymentMethod)
-                .collect(Collectors.toList());
-
-        if (!storeMethods.contains("CASH")) {
-            throw new IllegalStateException(
-                    "Store " + storeId + " không hỗ trợ CASH. Không thể thanh toán tiền mặt.");
-        }
-
-        if (!store.isDeptStatus()) {
-            throw new IllegalStateException("Store " + storeId + " không có nợ cần thanh toán");
-        }
-
-        if (!store.isDeptStatus()) {
-            throw new IllegalStateException("Store " + storeId + " không có nợ cần thanh toán");
-        }
-
-        List<FranchiseStorePaymentRecord> debtRecords =
-                paymentRecordRepository.findByStoreId(storeId);
-        debtRecords.forEach(r -> {
-            r.setStatus("PAID");
-            paymentRecordRepository.save(r);
-        });
-
-        // Reset deptStatus = false
-        store.setDeptStatus(false);
-        franchiseStoreRepository.save(store);
-
-        //log.info("Store {} debt paid by CASH", storeId);
-        return toStoreResponse(store);
-    }
 
     @Transactional
     public StoreResponse updateDebtStatus(String storeId, boolean debtStatus) {
@@ -208,10 +140,7 @@ public class FranchiseStoreService {
     }
 
     private StoreResponse toStoreResponse(FranchiseStore s) {
-        List<String> methods = paymentMethodRepository.findByStoreId(s.getStoreId())
-                .stream()
-                .map(FranchiseStorePaymentMethod::getPaymentMethod)
-                .collect(Collectors.toList());
+
 
         return new StoreResponse(
                 s.getStoreId(),
@@ -235,11 +164,5 @@ public class FranchiseStoreService {
         );
     }
 
-    private PaymentMethodResponse toPaymentMethodResponse(FranchiseStorePaymentMethod pm) {
-        return new PaymentMethodResponse(
-                pm.getStorePaymentId(),
-                pm.getStoreId(),
-                pm.getPaymentMethod()
-        );
-    }
+
 }

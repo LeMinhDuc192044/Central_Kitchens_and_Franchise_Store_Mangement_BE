@@ -38,7 +38,6 @@ public class VNPayService {
     private final OrderRepository orderRepository;
     private final FranchiseStoreRepository franchiseStoreRepository;
     private final FranchiseStorePaymentRecordRepository franchisePaymentRecordRepository;
-    private final FranchiseStorePaymentMethodRepository franchisePaymentMethodRepository;
     private final PaymentRecordRepository paymentRecordRepository;
 
     // ============================================================
@@ -83,10 +82,6 @@ public class VNPayService {
                     paymentRepository.save(p);
                 });
 
-                orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
-                    invoice.setHasPendingTransaction(false);
-                    orderInvoiceRepository.save(invoice);
-                });
             }
         }
 
@@ -140,8 +135,6 @@ public class VNPayService {
         paymentRecordRepository.save(newRecord);
 
         orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
-            invoice.setHasPendingTransaction(true);
-            invoice.setTxnRef(txnRef);
             orderInvoiceRepository.save(invoice);
         });
 
@@ -163,15 +156,6 @@ public class VNPayService {
         FranchiseStore store = franchiseStoreRepository.findById(storeId)
                 .orElseThrow(() -> new RuntimeException("Store không tồn tại: " + storeId));
 
-        List<String> storeMethods = franchisePaymentMethodRepository.findByStoreId(storeId)
-                .stream()
-                .map(FranchiseStorePaymentMethod::getPaymentMethod)
-                .collect(Collectors.toList());
-
-        if (!storeMethods.contains("CREDIT")) {
-            throw new IllegalStateException(
-                    "Store " + storeId + " không hỗ trợ CREDIT. Không thể thanh toán qua VNPay.");
-        }
 
         if (!store.isDeptStatus()) {
             throw new IllegalStateException("Store " + storeId + " không có nợ cần thanh toán");
@@ -302,7 +286,6 @@ public class VNPayService {
                                 invoice.setPaymentType("VNPAY");
                                 invoice.setTotalAmount(BigDecimal.valueOf(o.getOrderDetail().getAmount().longValue()));
                                 invoice.setPaidDate(LocalDate.now());
-                                invoice.setHasPendingTransaction(false);
                                 orderInvoiceRepository.save(invoice);
                                 log.info("Invoice of order {} → PAID after debt payment txnRef={}", o.getOrderId(), txnRef);
                             });
@@ -318,7 +301,6 @@ public class VNPayService {
                     //invoice.setPaymentType("VNPAY");
                     invoice.setTotalAmount(BigDecimal.valueOf(payment.getAmount()));
                     invoice.setPaidDate(LocalDate.now());
-                    invoice.setHasPendingTransaction(false);
                     orderInvoiceRepository.save(invoice);
                     log.info("Invoice updated to PAID for orderId: {}", orderId);
                 });
@@ -337,7 +319,6 @@ public class VNPayService {
             String orderId = payment.getOrderId();
             if (orderId != null) {
                 orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
-                    invoice.setHasPendingTransaction(false);
                     orderInvoiceRepository.save(invoice);
                     log.info("Invoice of order {} → hasPendingTransaction=false (payment FAILED)", orderId);
                 });
@@ -394,7 +375,6 @@ public class VNPayService {
         // ✅ Cập nhật Invoice → REFUNDED
         orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
             invoice.setInvoiceStatus("REFUNDED");
-            invoice.setHasPendingTransaction(false);
             orderInvoiceRepository.save(invoice);
             log.info("Invoice of order {} → REFUNDED", orderId);
         });
