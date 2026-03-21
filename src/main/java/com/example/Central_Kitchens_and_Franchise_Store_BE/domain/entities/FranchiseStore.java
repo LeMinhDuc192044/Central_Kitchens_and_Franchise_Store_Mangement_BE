@@ -42,17 +42,6 @@ public class FranchiseStore {
     @Column(name = "number_of_contact")
     private String numberOfContact;
 
-    @OneToMany(mappedBy = "franchiseStore", cascade = CascadeType.ALL)
-    @Builder.Default
-    private Set<FranchiseStorePaymentMethod> paymentMethods = new HashSet<>();
-
-    @OneToMany(mappedBy = "franchiseStore", cascade = CascadeType.ALL)
-    @Builder.Default
-    private Set<FranchiseStorePaymentMethod> paymentRecords = new HashSet<>();
-
-    @OneToMany(mappedBy = "franchiseStore", cascade = CascadeType.ALL)
-    @Builder.Default
-    private Set<FranchiseStoresFood> storeFoods = new HashSet<>();
 
     @OneToMany(mappedBy = "franchiseStore", cascade = CascadeType.ALL)
     @Builder.Default

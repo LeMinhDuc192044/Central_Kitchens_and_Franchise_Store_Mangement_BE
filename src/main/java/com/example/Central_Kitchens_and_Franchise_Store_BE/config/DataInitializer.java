@@ -23,7 +23,6 @@ public class DataInitializer {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final FranchiseStoreRepository franchiseStoreRepository;
-    private final FranchiseStorePaymentMethodRepository paymentMethodRepository;
     private final CentralFoodCategoryRepository foodCategoryRepository;
     private final CentralFoodsRepository centralFoodRepository;
 
@@ -97,7 +96,7 @@ public class DataInitializer {
                     "Bến Nghé",
                     "store1.manager@centralkitchen.com"
             );
-            createPaymentMethodIfNotExists("STORE-D1-001", "CREDIT");
+
 
 // ── Store 2 - Quận 2, Hồ Chí Minh ────────────────────────────────
             createStoreIfNotExists(
@@ -110,7 +109,7 @@ public class DataInitializer {
                     "An Khánh",
                     "store2.manager@centralkitchen.com"
             );
-            createPaymentMethodIfNotExists("STORE-D2-001", "CREDIT");
+
 
 // ── Store 3 - Quận 3, Hồ Chí Minh ────────────────────────────────
             createStoreIfNotExists(
@@ -123,7 +122,7 @@ public class DataInitializer {
                     "Phường 6",
                     "store3.manager@centralkitchen.com"
             );
-            createPaymentMethodIfNotExists("STORE-D3-001", "CREDIT");
+
 
             // ── Food Categories ──────────────────────────────
             createCategoryIfNotExists("CE_CH_482917", "Chicken");
@@ -199,18 +198,7 @@ public class DataInitializer {
         store.assignManager(manager);
         franchiseStoreRepository.save(store);
     }
-    private void createPaymentMethodIfNotExists(String storeId, String method) {
-        boolean exists = paymentMethodRepository
-                .findByStoreIdAndPaymentMethod(storeId, method)
-                .isPresent();
-        if (!exists) {
-            FranchiseStorePaymentMethod pm = new FranchiseStorePaymentMethod();
-            pm.setStorePaymentId(UUID.randomUUID().toString());
-            pm.setStoreId(storeId);
-            pm.setPaymentMethod(method);
-            paymentMethodRepository.save(pm);
-        }
-    }
+
 
     private void createUserIfNotExists(
             String email,

@@ -42,7 +42,6 @@ public class OrderService {
     private final FranchiseStoreRepository franchiseStoreRepository;
     private final FranchiseStorePaymentRecordRepository franchiseStorePaymentRecordRepository;
 
-    // 1. TẠO ORDER MỚI
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
         String orderId = orderIdGenerator.generateOrderId();
@@ -80,18 +79,9 @@ public class OrderService {
         String orderDetailId = savedOrder.getOrderDetail().getOrderDetailId();
         BigDecimal totalAmount = orderDetail.getAmount();
 
-        // ── Invoice ───────────────────────────────────────────────
-        OrderInvoice invoice = OrderInvoice.builder()
-                .orderInvoiceId("INV-" + savedOrder.getOrderId())
-                .orderId(orderDetailId)
-                .paymentType(String.valueOf(request.getPaymentMethod()))
-                .invoiceStatus("PENDING")
-                .totalAmount(totalAmount)
-                .build();
-        orderInvoiceRepository.save(invoice);
+        // ── Nếu PAY_AT_THE_END_OF_MONTH → tạo debt record TRƯỚC ──
+        String paymentRecordId = null;
 
-
-        // ── Nếu PAY_AT_THE_END_OF_MONTH → tạo debt record ────────
         if (PaymentOption.PAY_AT_THE_END_OF_MONTH.equals(request.getPaymentOption())) {
             FranchiseStorePaymentRecord debtRecord = new FranchiseStorePaymentRecord();
             debtRecord.setPaymentRecordId(UUID.randomUUID().toString());
@@ -99,9 +89,10 @@ public class OrderService {
             debtRecord.setDebtAmount(totalAmount);
             debtRecord.setStatus("PENDING");
             debtRecord.setCreatedAt(LocalDateTime.now());
-            franchiseStorePaymentRecordRepository.save(debtRecord);
 
-            // Cập nhật deptStatus = true cho store
+            FranchiseStorePaymentRecord savedDebtRecord = franchiseStorePaymentRecordRepository.save(debtRecord);
+            paymentRecordId = savedDebtRecord.getPaymentRecordId(); // 👈 lấy ID sau khi save
+
             franchiseStoreRepository.findById(request.getStoreId()).ifPresent(store -> {
                 store.setDeptStatus(true);
                 franchiseStoreRepository.save(store);
@@ -110,6 +101,17 @@ public class OrderService {
             log.info("Order {} → debt record created for store {}, amount={}",
                     orderId, request.getStoreId(), totalAmount);
         }
+
+        // ── Invoice ───────────────────────────────────────────────
+        OrderInvoice invoice = OrderInvoice.builder()
+                .orderInvoiceId("INV-" + savedOrder.getOrderId())
+                .orderId(orderDetailId)
+                .paymentType(String.valueOf(request.getPaymentMethod()))
+                .invoiceStatus("PENDING")
+                .totalAmount(totalAmount)
+                .paymentRecordId(paymentRecordId) // 👈 set String FK trực tiếp (null nếu không phải PAY_AT_THE_END_OF_MONTH)
+                .build();
+        orderInvoiceRepository.save(invoice);
 
         log.info("Created order {} with {} item(s)",
                 orderId, request.getOrderDetail().getItems().size());
@@ -151,7 +153,7 @@ public class OrderService {
         OrderStatus currentStatus = order.getStatusOrder();
 
         // Validate transition hợp lệ
-        statusValidator.validateTransition(currentStatus, newStatus, false);
+        //statusValidator.validateTransition(currentStatus, newStatus, false);
 
         order.setStatusOrder(newStatus);
 

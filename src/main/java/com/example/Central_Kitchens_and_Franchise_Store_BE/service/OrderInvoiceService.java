@@ -2,17 +2,13 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderInvoiceResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.OrderInvoice;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.PaymentRecord;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.exception.custom.ResourceNotFoundException;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentMethodRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderInvoiceRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.PaymentRecordRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.Optional;
 
 
 @Service
