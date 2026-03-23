@@ -5,10 +5,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.Or
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.IdGeneratorUtil;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.OrderIdGenerator;
@@ -32,6 +29,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+
+    private static final Integer TIME_TO_PAY = 1;
 
     private final OrderRepository orderRepository;
     private final OrderStatusValidator statusValidator;
@@ -83,23 +82,32 @@ public class OrderService {
         String paymentRecordId = null;
 
         if (PaymentOption.PAY_AT_THE_END_OF_MONTH.equals(request.getPaymentOption())) {
-            FranchiseStorePaymentRecord debtRecord = new FranchiseStorePaymentRecord();
-            debtRecord.setPaymentRecordId(UUID.randomUUID().toString());
-            debtRecord.setStoreId(request.getStoreId());
-            debtRecord.setDebtAmount(totalAmount);
-            debtRecord.setStatus("PENDING");
-            debtRecord.setCreatedAt(LocalDateTime.now());
 
-            FranchiseStorePaymentRecord savedDebtRecord = franchiseStorePaymentRecordRepository.save(debtRecord);
-            paymentRecordId = savedDebtRecord.getPaymentRecordId(); // 👈 lấy ID sau khi save
+            // ── Find or create ONE MONTHLY record per store ────────────────────────
+            FranchiseStorePaymentRecord monthlyRecord = franchiseStorePaymentRecordRepository
+                    .findByStoreIdAndStatusAndRecordType(
+                            request.getStoreId(), "PENDING", PaymentRecordType.MONTHLY)
+                    .orElseGet(() -> {
+                        log.info("Creating new MONTHLY record for store [{}]", request.getStoreId());
+                        return FranchiseStorePaymentRecord.builder()
+                                .paymentRecordId(UUID.randomUUID().toString())
+                                .storeId(request.getStoreId())
+                                .debtAmount(BigDecimal.ZERO)
+                                .status(PaymentStatus.PENDING)
+                                .recordType(PaymentRecordType.MONTHLY)   // ← MONTHLY type
+                                .createdAt(LocalDateTime.now())
+                                .payDate(LocalDateTime.now().plusMonths(TIME_TO_PAY))
+                                .build();
+                    });
 
-            franchiseStoreRepository.findById(request.getStoreId()).ifPresent(store -> {
-                store.setDeptStatus(true);
-                franchiseStoreRepository.save(store);
-            });
+            // ── Accumulate amount + link order ─────────────────────────────────────
+            monthlyRecord.setDebtAmount(monthlyRecord.getDebtAmount().add(totalAmount));
+            monthlyRecord.getOrders().add(savedOrder);
+            FranchiseStorePaymentRecord saved = franchiseStorePaymentRecordRepository.save(monthlyRecord);
+            paymentRecordId = saved.getPaymentRecordId();
 
-            log.info("Order {} → debt record created for store {}, amount={}",
-                    orderId, request.getStoreId(), totalAmount);
+            log.info("Order [{}] added to MONTHLY record [{}], total={}",
+                    orderId, paymentRecordId, monthlyRecord.getDebtAmount());
         }
 
         // ── Invoice ───────────────────────────────────────────────
@@ -388,7 +396,7 @@ public class OrderService {
             debtRecord.setPaymentRecordId(UUID.randomUUID().toString());
             debtRecord.setStoreId(order.getStoreId());
             debtRecord.setDebtAmount(totalAmount);
-            debtRecord.setStatus("PENDING");
+            debtRecord.setStatus(PaymentStatus.PENDING);
             debtRecord.setCreatedAt(LocalDateTime.now());
             franchiseStorePaymentRecordRepository.save(debtRecord);
 

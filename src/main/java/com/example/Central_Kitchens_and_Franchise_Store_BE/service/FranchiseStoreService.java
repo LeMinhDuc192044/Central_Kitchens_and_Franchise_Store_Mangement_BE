@@ -8,6 +8,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.Cr
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.UpdatePaymentMethodRequest;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStore;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.FranchiseStorePaymentRecord;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStorePaymentRecordRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.FranchiseStoreRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.UserRepository;
@@ -90,7 +91,7 @@ public class FranchiseStoreService {
     public PaymentRecordResponse addPaymentRecord(CreatePaymentRecordRequest request) {
 
         FranchiseStore store = findStoreOrThrow(request.storeId());
-        if (!store.isDeptStatus()) {
+        if (store.isDeptStatus()) {
             throw new IllegalStateException("Store này không có nợ, không thể nhập payment record.");
         }
 
@@ -99,6 +100,7 @@ public class FranchiseStoreService {
         }
 
         // 0 → no debt (false); > 0 → has debt (true)
+        store.setDeptStatus(true);
         store.setDeptStatus(request.debtAmount().compareTo(BigDecimal.ZERO) > 0);
         franchiseStoreRepository.save(store);
 
@@ -107,7 +109,7 @@ public class FranchiseStoreService {
                 .storeId(request.storeId())
                 .debtAmount(request.debtAmount())
                 .createdAt(LocalDateTime.now())
-                .status("PENDING")
+                .status(PaymentStatus.PENDING)
                 .build();
 
         return toPaymentRecordResponse(paymentRecordRepository.save(record));
