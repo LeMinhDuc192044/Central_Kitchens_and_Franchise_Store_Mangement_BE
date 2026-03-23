@@ -32,11 +32,11 @@ public class OrderInvoiceService {
 
         return OrderInvoiceResponse.builder()
                 .orderInvoiceId(invoice.getOrderInvoiceId())
+                .orderId(invoice.getOrderId())
                 .invoiceStatus(invoice.getInvoiceStatus())
                 .paymentType(invoice.getPaymentType())
                 .totalAmount(invoice.getTotalAmount())
                 .paidDate(invoice.getPaidDate())
-                .orderId(realOrderId)
                 .build();
     }
 }

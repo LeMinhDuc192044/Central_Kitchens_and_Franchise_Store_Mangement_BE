@@ -23,8 +23,7 @@ public class OrderDetail {
     private String orderDetailId;
 
     @Column(name = "amount")
-    private BigDecimal amount;  // ← được tính tự động
-
+    private BigDecimal amount;
 
     @Column(name = "order_id_fk")
     private String orderId;
@@ -45,18 +44,14 @@ public class OrderDetail {
     @Builder.Default
     private Set<Feedback> feedbacks = new HashSet<>();
 
-    @OneToOne(mappedBy = "orderDetail", cascade = CascadeType.ALL)
-    private OrderInvoice orderInvoice;
+    // ✅ XÓA field orderInvoice — giờ OrderInvoice thuộc về Order, không phải OrderDetail
 
-    // ✅ Helper method - tự động sync amount
     public void addOrderDetailItem(OrderDetailItem item) {
         orderDetailItems.add(item);
         item.setOrderDetail(this);
         item.setOrderDetailId(this.orderDetailId);
-        this.amount = calculateTotalAmount(); // sync
+        this.amount = calculateTotalAmount();
     }
-
-
 
     public BigDecimal calculateTotalAmount() {
         return orderDetailItems.stream()
