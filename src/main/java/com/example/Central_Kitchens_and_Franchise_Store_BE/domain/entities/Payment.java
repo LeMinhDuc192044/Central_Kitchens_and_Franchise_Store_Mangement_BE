@@ -6,6 +6,8 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -78,12 +80,12 @@ public class Payment {
     @Column(name = "store_id")
     private String storeId;
 
-    @Column(name = "payment_month")
-    private Integer paymentMonth;
-
     @ManyToOne
     @JoinColumn(name = "order_id_fk", referencedColumnName = "order_id", insertable = false, updatable = false)
     private Order order;
+
+    @OneToMany(mappedBy = "payment", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<PaymentRecord> paymentRecords = new ArrayList<>();
 
     @PrePersist
     void prePersist() {

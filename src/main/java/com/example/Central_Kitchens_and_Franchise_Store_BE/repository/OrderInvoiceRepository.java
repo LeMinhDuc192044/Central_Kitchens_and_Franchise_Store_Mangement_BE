@@ -12,4 +12,5 @@ import java.util.Optional;
 @Repository
 public interface OrderInvoiceRepository extends JpaRepository<OrderInvoice, String> {
     Optional<OrderInvoice> findByOrderId(String orderId);
+    Optional<OrderInvoice> findByPaymentRecordId(String paymentRecordId);
 }
