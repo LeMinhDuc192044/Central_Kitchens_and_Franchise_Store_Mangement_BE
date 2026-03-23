@@ -31,18 +31,20 @@ public class OrderInvoice {
     @Column(name = "paid_date")
     private LocalDate paidDate;
 
-
     @Column(name = "order_id_fk")
     private String orderId;
 
+    // ✅ Sửa: trỏ vào Order thay vì OrderDetail
     @OneToOne
-    @JoinColumn(name = "order_id_fk", referencedColumnName = "order_detail_id", insertable = false, updatable = false)
-    private OrderDetail orderDetail;
+    @JoinColumn(name = "order_id_fk", referencedColumnName = "order_id",
+            insertable = false, updatable = false)
+    private Order order;
 
-    @Column(name = "payment_record_id_fk") // 👈 thêm column này để ghi FK
+    @Column(name = "payment_record_id_fk")
     private String paymentRecordId;
 
     @ManyToOne
-    @JoinColumn(name = "payment_record_id_fk", referencedColumnName = "payment_record_id", insertable = false, updatable = false)
+    @JoinColumn(name = "payment_record_id_fk", referencedColumnName = "payment_record_id",
+            insertable = false, updatable = false)
     private FranchiseStorePaymentRecord paymentRecord;
 }

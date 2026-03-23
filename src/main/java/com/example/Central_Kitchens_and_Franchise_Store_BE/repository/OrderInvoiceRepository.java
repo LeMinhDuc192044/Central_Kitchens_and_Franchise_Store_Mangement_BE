@@ -11,9 +11,5 @@ import java.util.Optional;
 // OrderInvoiceRepository.java
 @Repository
 public interface OrderInvoiceRepository extends JpaRepository<OrderInvoice, String> {
-    // Tìm invoice qua orderDetailId của order
-    @Query("SELECT oi FROM OrderInvoice oi " +
-            "JOIN OrderDetail od ON oi.orderId = od.orderDetailId " +
-            "WHERE od.orderId = :orderId")
-    Optional<OrderInvoice> findByOrderId(@Param("orderId") String orderId);
+    Optional<OrderInvoice> findByOrderId(String orderId);
 }
