@@ -124,13 +124,16 @@ public class VNPayService {
         payment.setAmount(totalAmount);
         payment.setIpAddress(ipAddress);
         payment.setOrderId(orderId);
-        paymentRepository.save(payment);
+        payment.setStoreId(order.getStoreId());
+
+        Payment savedPayment = paymentRepository.save(payment);
 
         PaymentRecord newRecord = PaymentRecord.builder()
                 .orderId(orderId)
                 .txnRef(txnRef)
                 .amount(totalAmount)
                 .status("PENDING")
+                .paymentId(savedPayment.getPaymentId())
                 .build();
         paymentRecordRepository.save(newRecord);
 
@@ -259,11 +262,27 @@ public class VNPayService {
             String orderId = payment.getOrderId();
             String storeId = payment.getStoreId();
 
-            // ── Xử lý debt payment ────────────────────────────────
+// ── Xử lý debt payment ────────────────────────────────
             if (storeId != null && orderId == null) {
                 List<FranchiseStorePaymentRecord> debtRecords =
                         franchisePaymentRecordRepository.findByStoreId(storeId);
+
+                // ✅ Ngắt cả FK string lẫn object reference, flush ngay
+                debtRecords.forEach(record -> {
+                    orderInvoiceRepository.findByPaymentRecordId(record.getPaymentRecordId())
+                            .ifPresent(invoice -> {
+                                invoice.setPaymentRecordId(null);   // ✅ null FK string
+                                invoice.setPaymentRecord(null);      // ✅ null object reference
+                                orderInvoiceRepository.save(invoice);
+                                log.info("Ngắt FK order_invoice → franchise_store_payment_record: recordId={}",
+                                        record.getPaymentRecordId());
+                            });
+                });
+
+                // ✅ Flush trước khi xóa, tránh Hibernate auto-flush khi đang có transient ref
+                orderInvoiceRepository.flush();
                 franchisePaymentRecordRepository.deleteAll(debtRecords);
+                franchisePaymentRecordRepository.flush();
 
                 franchiseStoreRepository.findById(storeId).ifPresent(store -> {
                     store.setDeptStatus(false);
@@ -271,7 +290,6 @@ public class VNPayService {
                     log.info("Store {} debt cleared after payment txnRef={}", storeId, txnRef);
                 });
 
-                // ✅ Update paymentStatus + invoice các order PAY_AT_THE_END_OF_MONTH → SUCCESS
                 List<Order> storeOrders = orderRepository.findByStoreId(storeId);
                 storeOrders.stream()
                         .filter(o -> PaymentStatus.PENDING.equals(o.getPaymentStatus())
@@ -280,17 +298,18 @@ public class VNPayService {
                             o.setPaymentStatus(PaymentStatus.SUCCESS);
                             orderRepository.save(o);
 
-                            // ✅ Update invoice của từng order
                             orderInvoiceRepository.findByOrderId(o.getOrderId()).ifPresent(invoice -> {
                                 invoice.setInvoiceStatus("PAID");
-                                invoice.setPaymentType("VNPAY");
+                                invoice.setPaymentType("CREDIT");
                                 invoice.setTotalAmount(BigDecimal.valueOf(o.getOrderDetail().getAmount().longValue()));
                                 invoice.setPaidDate(LocalDate.now());
                                 orderInvoiceRepository.save(invoice);
-                                log.info("Invoice of order {} → PAID after debt payment txnRef={}", o.getOrderId(), txnRef);
+                                log.info("Invoice of order {} → PAID after debt payment txnRef={}",
+                                        o.getOrderId(), txnRef);
                             });
 
-                            log.info("Order {} paymentStatus → SUCCESS after debt payment txnRef={}", o.getOrderId(), txnRef);
+                            log.info("Order {} paymentStatus → SUCCESS after debt payment txnRef={}",
+                                    o.getOrderId(), txnRef);
                         });
             }
 
@@ -298,14 +317,12 @@ public class VNPayService {
             if (orderId != null) {
                 orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
                     invoice.setInvoiceStatus("PAID");
-                    //invoice.setPaymentType("VNPAY");
                     invoice.setTotalAmount(BigDecimal.valueOf(payment.getAmount()));
                     invoice.setPaidDate(LocalDate.now());
                     orderInvoiceRepository.save(invoice);
                     log.info("Invoice updated to PAID for orderId: {}", orderId);
                 });
 
-                // Cập nhật paymentStatus trên Order
                 orderRepository.findById(orderId).ifPresent(order -> {
                     order.setPaymentStatus(PaymentStatus.SUCCESS);
                     orderRepository.save(order);
@@ -315,7 +332,6 @@ public class VNPayService {
         } else {
             payment.setStatus(PaymentStatus.FAILED);
 
-            // Reset hasPendingTransaction = false nếu thanh toán thất bại
             String orderId = payment.getOrderId();
             if (orderId != null) {
                 orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {

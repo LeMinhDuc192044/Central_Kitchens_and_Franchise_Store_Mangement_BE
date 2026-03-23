@@ -72,11 +72,13 @@ public class Order {
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private OrderDetail orderDetail;
 
+    // ✅ Thêm: relationship với OrderInvoice
+    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private OrderInvoice orderInvoice;
 
     public void assignOrderDetail(OrderDetail orderDetail) {
         this.orderDetail = orderDetail;
         orderDetail.setOrder(this);
         orderDetail.setOrderId(this.orderId);
-
     }
 }
