@@ -521,6 +521,7 @@ public class SupplyService {
 
         return toResponse(saved);
     }
+
     @Transactional
     public SupplyBatchResponse createManualBatch(CreateBatchRequest request) {
 
@@ -574,7 +575,7 @@ public class SupplyService {
 
     /**
      * Gom tất cả order items theo foodId.
-     * Cùng món từ nhiều stores → cộng số lượng, ghi rõ nguồn.
+     * Cùng món từ nhiều stores → cộng số lượng, ghi rõ nguồn (orderId + storeId).
      */
     private Map<String, AggregatedFoodData> aggregateFoods(List<Order> orders) {
         Map<String, AggregatedFoodData> foodMap = new LinkedHashMap<>();
@@ -595,8 +596,10 @@ public class SupplyService {
                 );
 
                 agg.totalQty += item.getQuantity();
-                // Ghi rõ store nào đóng góp bao nhiêu
-                agg.sourceMap.merge(order.getStoreId(), item.getQuantity(), Integer::sum);
+
+                // Key = "orderId (storeId)" để hiển thị rõ nguồn đơn
+                String sourceKey = order.getOrderId() + " (" + order.getStoreId() + ")";
+                agg.sourceMap.merge(sourceKey, item.getQuantity(), Integer::sum);
             }
         }
 
@@ -741,7 +744,7 @@ public class SupplyService {
     }
 
     private void validateBatchStatusTransition(BatchStatus current, BatchStatus next) {
-        // DRAFT → SENT → IN_PRODUCTION → PRODUCTION_COMPLETED
+        // DRAFT → SENT → IN_PRODUCTION → DELIVERED
         // DRAFT → CANCELLED
         // SENT  → CANCELLED
         Map<BatchStatus, Set<BatchStatus>> allowed = Map.of(
@@ -792,8 +795,11 @@ public class SupplyService {
         String centralFoodId;
         String foodName;
         int totalQty;
-        Map<String, Integer> sourceMap; // storeId → quantity
+        Map<String, Integer> sourceMap; // "orderId (storeId)" → quantity
 
+        /**
+         * Build sourceDetail string với format: "ORD006 (STORE-D1-001): 20, ORD007 (STORE-D2-001): 20"
+         */
         String buildSourceDetailString() {
             if (sourceMap == null || sourceMap.isEmpty()) return "";
             return sourceMap.entrySet().stream()
