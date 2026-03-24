@@ -62,7 +62,7 @@ public class SecurityConfig {
                                 "/central_foods/**",
                                 "/delivery/**",
                                 "/franchise-stores/**",
-                                "/supply/**"
+                                "/supply/**","/config/**"
                         ).permitAll()
                         // All other API endpoints require authentication (handled by @PreAuthorize in controllers)
                         .anyRequest().authenticated()

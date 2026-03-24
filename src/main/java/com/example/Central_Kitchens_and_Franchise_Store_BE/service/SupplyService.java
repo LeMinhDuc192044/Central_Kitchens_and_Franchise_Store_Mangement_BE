@@ -9,6 +9,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.BatchStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.KitchenConfigRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.SupplyBatchRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -27,14 +28,23 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SupplyService {
 
-    // ── Giới hạn của Central Kitchen ──────────────────────────────
-    private static final int MAX_TYPES_PER_DAY     = 10;   // Tối đa 10 loại món/ngày
-    private static final int MAX_QUANTITY_PER_DAY  = 40;   // Tối đa 40 món/ngày
+
 
     private final OrderRepository       orderRepository;
     private final SupplyBatchRepository supplyBatchRepository;
     private final CentralFoodsRepository centralFoodsRepository;
+    private final KitchenConfigRepository kitchenConfigRepository;
 
+    private int getMaxTypesPerDay() {
+        return kitchenConfigRepository.findByConfigKey("MAX_TYPES_PER_DAY")
+                .map(KitchenConfig::getIntValue)
+                .orElse(10); // fallback nếu chưa seed
+    }
+
+    private int getMaxQuantityPerDay() {
+        return kitchenConfigRepository.findByConfigKey("MAX_QUANTITY_PER_DAY")
+                .map(KitchenConfig::getIntValue)
+                .orElse(40);}
     // ═══════════════════════════════════════════════════════════════
     // 1. PREVIEW - Xem trước tổng hợp cuối ngày mà CHƯA tạo batch
     //    Supply coordinator dùng để kiểm tra trước khi quyết định gửi
@@ -223,11 +233,11 @@ public class SupplyService {
         int totalQuantity = foodMap.values().stream().mapToInt(f -> f.totalQty).sum();
 
         // Validate vẫn phải trong giới hạn của 1 batch
-        if (totalTypes > MAX_TYPES_PER_DAY || totalQuantity > MAX_QUANTITY_PER_DAY) {
+        if (totalTypes > getMaxTypesPerDay() || totalQuantity > getMaxQuantityPerDay()) {
             throw new IllegalStateException(String.format(
                     "Đơn HIGH priority vượt giới hạn 1 batch: %d loại (max %d), %d món (max %d). " +
                             "Dùng aggregateDailyOrders để tách batch.",
-                    totalTypes, MAX_TYPES_PER_DAY, totalQuantity, MAX_QUANTITY_PER_DAY));
+                    totalTypes, getMaxTypesPerDay(), totalQuantity, getMaxQuantityPerDay()));
         }
 
         String batchId = "BATCH-URGENT-" + date + "-" + System.currentTimeMillis();
@@ -297,37 +307,62 @@ public class SupplyService {
         batch.setStatus(newStatus);
         SupplyBatch saved = supplyBatchRepository.save(batch);
 
+        // ── Khi sản xuất hoàn thành → update tất cả orders liên quan ──
+        if (newStatus == BatchStatus.PRODUCTION_COMPLETED) {
+            updateRelatedOrdersToReadyToPick(saved);
+        }
+
         log.info("[STATUS] Batch {} → {}", batchId, newStatus);
         return toResponse(saved);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // 6. DEFER BATCH - Dời batch sang ngày khác
-    //    Tình huống: Đơn LOW priority, store không cần gấp,
-    //    dời sang tuần sau để không chiếm slot ngày hôm nay
-    // ═══════════════════════════════════════════════════════════════
-    @Transactional
-    public SupplyBatchResponse deferBatch(String batchId, LocalDate newDate, String reason) {
-        SupplyBatch batch = supplyBatchRepository.findById(batchId)
-                .orElseThrow(() -> new EntityNotFoundException("Batch not found: " + batchId));
+    /**
+     * Parse sourceDetail của từng item trong batch để lấy orderId,
+     * sau đó update tất cả orders đó → READY_TO_PICK.
+     *
+     * sourceDetail format: "ORD006 (STORE-D1-001): 20, ORD007 (STORE-D2-001): 15"
+     */
+    private void updateRelatedOrdersToReadyToPick(SupplyBatch batch) {
+        // Thu thập tất cả orderId xuất hiện trong sourceDetail của batch
+        Set<String> orderIds = new HashSet<>();
 
-        if (batch.getStatus() != BatchStatus.DRAFT) {
-            throw new IllegalStateException(
-                    "Chỉ có thể dời batch ở trạng thái DRAFT. Hiện tại: " + batch.getStatus());
+        for (SupplyBatchItem item : batch.getItems()) {
+            String sourceDetail = item.getSourceDetail();
+            if (sourceDetail == null || sourceDetail.isBlank()) continue;
+
+            // Mỗi entry có dạng: "ORD006 (STORE-D1-001): 20"
+            // OrderId là token đầu tiên trước dấu cách
+            for (String entry : sourceDetail.split(",")) {
+                String trimmed = entry.trim();
+                if (trimmed.startsWith("[")) continue; // bỏ qua "[Manual]" hay "[Đã chỉnh...]"
+                int spaceIdx = trimmed.indexOf(' ');
+                if (spaceIdx > 0) {
+                    orderIds.add(trimmed.substring(0, spaceIdx));
+                }
+            }
         }
-        if (newDate.isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("Ngày mới không thể là ngày trong quá khứ");
+
+        if (orderIds.isEmpty()) {
+            log.warn("[PRODUCTION_COMPLETED] Batch {} không parse được orderId nào từ sourceDetail", batch.getBatchId());
+            return;
         }
 
-        LocalDate oldDate = batch.getBatchDate();
-        batch.setBatchDate(newDate);
-        batch.setNote((batch.getNote() != null ? batch.getNote() + " | " : "")
-                + "Dời từ " + oldDate + " → " + newDate + ". Lý do: " + reason);
+        List<Order> orders = orderRepository.findAllById(orderIds);
 
-        SupplyBatch saved = supplyBatchRepository.save(batch);
-        log.info("[DEFER] Batch {} dời từ {} → {}, lý do: {}", batchId, oldDate, newDate, reason);
+        int updated = 0;
+        for (Order order : orders) {
+            if (order.getStatusOrder() == OrderStatus.WAITING_FOR_PRODUCTION) {
+                order.setStatusOrder(OrderStatus.READY_TO_PICK);
+                updated++;
+            } else {
+                log.warn("[PRODUCTION_COMPLETED] Order {} có status {} — bỏ qua, không update",
+                        order.getOrderId(), order.getStatusOrder());
+            }
+        }
 
-        return toResponse(saved);
+        orderRepository.saveAll(orders);
+        log.info("[PRODUCTION_COMPLETED] Batch {} → updated {}/{} orders → READY_TO_PICK",
+                batch.getBatchId(), updated, orderIds.size());
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -441,10 +476,10 @@ public class SupplyService {
         int newTotalItems = batch.getTotalItems() + diff;
 
         // ✅ Validate giới hạn số lượng Central Kitchen
-        if (newTotalItems > MAX_QUANTITY_PER_DAY) {
+        if (newTotalItems > getMaxQuantityPerDay()) {
             throw new IllegalArgumentException(String.format(
                     "Không thể chỉnh sửa: tổng số món sau khi edit là %d, vượt giới hạn %d món/ngày.",
-                    newTotalItems, MAX_QUANTITY_PER_DAY));
+                    newTotalItems, getMaxQuantityPerDay()));
         }
 
         batch.setTotalItems(newTotalItems);
@@ -465,10 +500,10 @@ public class SupplyService {
             int newTotalTypes = batch.getTotalTypes() + typesDelta;
 
             // ✅ Validate giới hạn số loại món
-            if (newTotalTypes > MAX_TYPES_PER_DAY) {
+            if (newTotalTypes > getMaxTypesPerDay()) {
                 throw new IllegalArgumentException(String.format(
                         "Không thể chỉnh sửa: tổng số loại món sau khi edit là %d, vượt giới hạn %d loại/ngày.",
-                        newTotalTypes, MAX_TYPES_PER_DAY));
+                        newTotalTypes, getMaxTypesPerDay()));
             }
 
             batch.setTotalTypes(newTotalTypes);
@@ -530,13 +565,13 @@ public class SupplyService {
         int totalQuantity = request.getItems().stream()
                 .mapToInt(CreateBatchRequest.BatchItemRequest::getQuantity).sum();
 
-        if (totalTypes > MAX_TYPES_PER_DAY) {
+        if (totalTypes > getMaxTypesPerDay()) {
             throw new IllegalArgumentException(String.format(
-                    "Vượt giới hạn %d loại món/ngày. Hiện tại: %d loại.", MAX_TYPES_PER_DAY, totalTypes));
+                    "Vượt giới hạn %d loại món/ngày. Hiện tại: %d loại.", getMaxTypesPerDay(), totalTypes));
         }
-        if (totalQuantity > MAX_QUANTITY_PER_DAY) {
+        if (totalQuantity > getMaxQuantityPerDay()) {
             throw new IllegalArgumentException(String.format(
-                    "Vượt giới hạn %d món/ngày. Hiện tại: %d món.", MAX_QUANTITY_PER_DAY, totalQuantity));
+                    "Vượt giới hạn %d món/ngày. Hiện tại: %d món.", getMaxQuantityPerDay(), totalQuantity));
         }
 
         String batchId = "BATCH-MANUAL-" + request.getBatchDate() + "-" + System.currentTimeMillis();
@@ -637,8 +672,8 @@ public class SupplyService {
 
             while (remaining > 0) {
                 // Tính slot còn lại trong batch hiện tại
-                int qtySlot  = MAX_QUANTITY_PER_DAY - currentQty;
-                int typeSlot = MAX_TYPES_PER_DAY    - currentBatch.size();
+                int qtySlot  = getMaxQuantityPerDay() - currentQty;
+                int typeSlot = getMaxTypesPerDay()    - currentBatch.size();
 
                 boolean canFit = qtySlot > 0 && typeSlot > 0;
 
@@ -647,7 +682,7 @@ public class SupplyService {
                     result.add(currentBatch);
                     currentBatch = new ArrayList<>();
                     currentQty   = 0;
-                    qtySlot      = MAX_QUANTITY_PER_DAY;
+                    qtySlot      = getMaxQuantityPerDay();
                 }
 
                 int take = Math.min(remaining, qtySlot);
@@ -739,7 +774,7 @@ public class SupplyService {
                 "Tổng %d loại món, %d món — vượt giới hạn 1 ngày (max %d loại, %d món). " +
                         "Cần %d ngày để sản xuất hết. Đơn HIGH priority được ưu tiên vào batch đầu.",
                 totalTypes, totalQuantity,
-                MAX_TYPES_PER_DAY, MAX_QUANTITY_PER_DAY,
+                getMaxTypesPerDay(), getMaxQuantityPerDay(),
                 batchCount);
     }
 
