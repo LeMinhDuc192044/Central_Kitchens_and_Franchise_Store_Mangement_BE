@@ -111,15 +111,15 @@ public class SupplyController {
         return ResponseEntity.ok(supplyService.getBatchById(batchId));
     }
 
-    @PatchMapping("/batches/{batchId}/defer")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
-    @Operation(summary = "Dời lịch sản xuất sang ngày khác (chỉ DRAFT)")
-    public ResponseEntity<SupplyBatchResponse> deferBatch(
-            @PathVariable String batchId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate newDate,
-            @RequestParam(required = false, defaultValue = "") String reason) {
-        return ResponseEntity.ok(supplyService.deferBatch(batchId, newDate, reason));
-    }
+//    @PatchMapping("/batches/{batchId}/defer")
+//    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+//    @Operation(summary = "Dời lịch sản xuất sang ngày khác (chỉ DRAFT)")
+//    public ResponseEntity<SupplyBatchResponse> deferBatch(
+//            @PathVariable String batchId,
+//            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate newDate,
+//            @RequestParam(required = false, defaultValue = "") String reason) {
+//        return ResponseEntity.ok(supplyService.deferBatch(batchId, newDate, reason));
+//    }
 
     @DeleteMapping("/batches/{batchId}")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
