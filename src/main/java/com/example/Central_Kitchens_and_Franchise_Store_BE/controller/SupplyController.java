@@ -121,6 +121,16 @@ public class SupplyController {
 //        return ResponseEntity.ok(supplyService.deferBatch(batchId, newDate, reason));
 //    }
 
+
+
+    @GetMapping("/batch-dates")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Xem những ngày đã có lịch sản xuất")
+    public ResponseEntity<List<LocalDate>> getAllBatchDates() {
+        List<LocalDate> dates = supplyService.getAllBatchDates();
+        return ResponseEntity.ok(dates);
+    }
+
     @DeleteMapping("/batches/{batchId}")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Hủy lô sản xuất (chỉ DRAFT hoặc SENT)")

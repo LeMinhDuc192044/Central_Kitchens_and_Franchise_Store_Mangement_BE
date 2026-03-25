@@ -167,6 +167,12 @@ public class SupplyService {
         return List.of(toResponse(batch));
     }
 
+    // Trong SupplyService
+    @Transactional
+    public List<LocalDate> getAllBatchDates() {
+        return supplyBatchRepository.findAllDistinctBatchDates();
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // 2b. RE-AGGREGATE - Xóa batch DRAFT cũ và tổng hợp lại
     //     Dùng khi đã aggregate rồi nhưng muốn làm lại
