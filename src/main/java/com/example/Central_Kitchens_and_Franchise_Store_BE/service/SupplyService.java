@@ -28,27 +28,27 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SupplyService {
 
-
-
-    private final OrderRepository       orderRepository;
-    private final SupplyBatchRepository supplyBatchRepository;
+    private final OrderRepository        orderRepository;
+    private final SupplyBatchRepository  supplyBatchRepository;
     private final CentralFoodsRepository centralFoodsRepository;
     private final KitchenConfigRepository kitchenConfigRepository;
 
     private int getMaxTypesPerDay() {
         return kitchenConfigRepository.findByConfigKey("MAX_TYPES_PER_DAY")
                 .map(KitchenConfig::getIntValue)
-                .orElse(10); // fallback nếu chưa seed
+                .orElse(10);
     }
 
     private int getMaxQuantityPerDay() {
         return kitchenConfigRepository.findByConfigKey("MAX_QUANTITY_PER_DAY")
                 .map(KitchenConfig::getIntValue)
-                .orElse(40);}
+                .orElse(40);
+    }
+
     // ═══════════════════════════════════════════════════════════════
-    // 1. PREVIEW - Xem trước tổng hợp cuối ngày mà CHƯA tạo batch
-    //    Supply coordinator dùng để kiểm tra trước khi quyết định gửi
-    // ═══════════════════════════════════════════════════════════════
+// 1. PREVIEW - Xem trước tổng hợp cuối ngày mà CHƯA tạo batch
+//    Supply coordinator dùng để kiểm tra trước khi quyết định gửi
+// ═══════════════════════════════════════════════════════════════
     @Transactional
     public AggregatePreviewResponse previewAggregation(LocalDate date) {
         List<Order> orders = orderRepository.findByStatusOrderAndOrderDate(
@@ -70,14 +70,6 @@ public class SupplyService {
         int totalTypes    = foodMap.size();
         int totalQuantity = foodMap.values().stream().mapToInt(f -> f.totalQty).sum();
 
-        // Tính số batch cần thiết
-        List<List<AggregatedFoodData>> batchGroups = splitIntoBatches(
-                new ArrayList<>(foodMap.values()), orders);
-        int estimatedBatchCount = batchGroups.size();
-
-        // Build warnings
-        String warning = buildWarning(totalTypes, totalQuantity, estimatedBatchCount);
-
         // Build aggregated items response
         List<AggregatePreviewResponse.AggregatedFoodItem> aggregatedItems = foodMap.values().stream()
                 .map(f -> AggregatePreviewResponse.AggregatedFoodItem.builder()
@@ -88,20 +80,44 @@ public class SupplyService {
                         .build())
                 .collect(Collectors.toList());
 
-        log.info("[PREVIEW] Date={} | {} orders | {} types | {} items | {} batches needed",
-                date, orders.size(), totalTypes, totalQuantity, estimatedBatchCount);
+        // ✅ Chỉ cảnh báo, không block — để supply biết cần điều chỉnh trước khi aggregate
+        String warning = buildWarning(totalTypes, totalQuantity);
+
+        log.info("[PREVIEW] Date={} | {} orders | {} types | {} items{}",
+                date, orders.size(), totalTypes, totalQuantity,
+                warning != null ? " | ⚠ " + warning : "");
 
         return AggregatePreviewResponse.builder()
                 .totalTypes(totalTypes)
                 .totalQuantity(totalQuantity)
-                .estimatedBatchCount(estimatedBatchCount)
+                .estimatedBatchCount(warning != null ? 0 : 1) // 0 = không thể tạo batch
                 .warning(warning)
                 .aggregatedItems(aggregatedItems)
                 .build();
     }
 
+    private String buildWarning(int totalTypes, int totalQuantity) {
+        List<String> warnings = new ArrayList<>();
+
+        if (totalQuantity > getMaxQuantityPerDay()) {
+            warnings.add(String.format(
+                    "tổng số món là %d, vượt giới hạn %d món/ngày",
+                    totalQuantity, getMaxQuantityPerDay()));
+        }
+        if (totalTypes > getMaxTypesPerDay()) {
+            warnings.add(String.format(
+                    "tổng số loại món là %d, vượt giới hạn %d loại/ngày",
+                    totalTypes, getMaxTypesPerDay()));
+        }
+
+        if (warnings.isEmpty()) return null;
+
+        return "⚠ Không thể tạo batch: " + String.join(" và ", warnings)
+                + ". Supply cần điều chỉnh lại các đơn trước khi tổng hợp.";
+    }
+
     // ═══════════════════════════════════════════════════════════════
-    // 2. AGGREGATE - Tổng hợp cuối ngày và tạo batch(es) thực sự
+    // 2. AGGREGATE - Tổng hợp cuối ngày và tạo batch thực sự
     //    Sau khi preview xong, supply xác nhận → gọi API này
     // ═══════════════════════════════════════════════════════════════
     @Transactional
@@ -110,7 +126,8 @@ public class SupplyService {
                 OrderStatus.WAITING_FOR_PRODUCTION, date);
 
         if (orders.isEmpty()) {
-            throw new IllegalStateException("Không có đơn WAITING_FOR_PRODUCTION nào trong ngày " + date);
+            throw new IllegalStateException(
+                    "Không có đơn WAITING_FOR_PRODUCTION nào trong ngày " + date);
         }
 
         List<SupplyBatch> existingBatches = supplyBatchRepository.findByBatchDate(date);
@@ -122,25 +139,32 @@ public class SupplyService {
         // Gom món theo food ID
         Map<String, AggregatedFoodData> foodMap = aggregateFoods(orders);
 
-        // Chia thành batch(es) theo giới hạn của central kitchen
-        // Đơn HIGH priority luôn được đưa vào batch đầu tiên (ngày sớm nhất)
+        int totalTypes    = foodMap.size();
+        int totalQuantity = foodMap.values().stream().mapToInt(f -> f.totalQty).sum();
+
+        // ✅ Validate: vượt giới hạn → block, không tự tách batch
+        if (totalQuantity > getMaxQuantityPerDay()) {
+            throw new IllegalStateException(String.format(
+                    "Tổng số món trong ngày %s là %d, vượt giới hạn %d món/ngày. " +
+                            "Supply cần điều chỉnh lại các đơn trước khi tổng hợp.",
+                    date, totalQuantity, getMaxQuantityPerDay()));
+        }
+        if (totalTypes > getMaxTypesPerDay()) {
+            throw new IllegalStateException(String.format(
+                    "Tổng số loại món trong ngày %s là %d, vượt giới hạn %d loại/ngày. " +
+                            "Supply cần điều chỉnh lại các đơn trước khi tổng hợp.",
+                    date, totalTypes, getMaxTypesPerDay()));
+        }
+
+        // Lúc này splitIntoBatches luôn trả về đúng 1 batch
         List<List<AggregatedFoodData>> batchGroups = splitIntoBatches(
                 new ArrayList<>(foodMap.values()), orders);
 
-        List<SupplyBatch> savedBatches = new ArrayList<>();
-        LocalDate batchDate = date;
+        SupplyBatch batch = buildAndSaveBatch(batchGroups.get(0), date, 1, 1);
 
-        for (int i = 0; i < batchGroups.size(); i++) {
-            List<AggregatedFoodData> group = batchGroups.get(i);
-            SupplyBatch batch = buildAndSaveBatch(group, batchDate, i + 1, batchGroups.size());
-            savedBatches.add(batch);
-            batchDate = batchDate.plusDays(1);  // Batch tiếp theo → ngày hôm sau
-        }
+        log.info("[AGGREGATE] Date={} → Created 1 batch for {} orders", date, orders.size());
 
-        log.info("[AGGREGATE] Date={} → Created {} batch(es) for {} orders",
-                date, savedBatches.size(), orders.size());
-
-        return savedBatches.stream().map(this::toResponse).collect(Collectors.toList());
+        return List.of(toResponse(batch));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -153,7 +177,7 @@ public class SupplyService {
         List<SupplyBatch> existingBatches = supplyBatchRepository.findByBatchDate(date);
 
         if (!existingBatches.isEmpty()) {
-            // Nếu bất kỳ batch nào đã SENT, IN_PRODUCTION, DELIVERED → không cho re-aggregate
+            // Nếu bất kỳ batch nào đã SENT, IN_PRODUCTION, PRODUCTION_COMPLETED → không cho re-aggregate
             List<SupplyBatch> lockedBatches = existingBatches.stream()
                     .filter(b -> b.getStatus() == BatchStatus.SENT
                             || b.getStatus() == BatchStatus.IN_PRODUCTION
@@ -174,36 +198,47 @@ public class SupplyService {
             log.info("[RE-AGGREGATE] Deleted {} old DRAFT batch(es) for date={}", existingBatches.size(), date);
         }
 
-        // Tạo lại từ đầu — logic giống aggregateDailyOrders
+        // Tạo lại từ đầu
         List<Order> orders = orderRepository.findByStatusOrderAndOrderDate(
                 OrderStatus.WAITING_FOR_PRODUCTION, date);
 
         if (orders.isEmpty()) {
-            throw new IllegalStateException("Không có đơn WAITING_FOR_PRODUCTION nào trong ngày " + date);
+            throw new IllegalStateException(
+                    "Không có đơn WAITING_FOR_PRODUCTION nào trong ngày " + date);
         }
 
         Map<String, AggregatedFoodData> foodMap = aggregateFoods(orders);
 
+        int totalTypes    = foodMap.size();
+        int totalQuantity = foodMap.values().stream().mapToInt(f -> f.totalQty).sum();
+
+        // ✅ Validate: vượt giới hạn → block, không tự tách batch
+        if (totalQuantity > getMaxQuantityPerDay()) {
+            throw new IllegalStateException(String.format(
+                    "Tổng số món trong ngày %s là %d, vượt giới hạn %d món/ngày. " +
+                            "Supply cần điều chỉnh lại các đơn trước khi tổng hợp.",
+                    date, totalQuantity, getMaxQuantityPerDay()));
+        }
+        if (totalTypes > getMaxTypesPerDay()) {
+            throw new IllegalStateException(String.format(
+                    "Tổng số loại món trong ngày %s là %d, vượt giới hạn %d loại/ngày. " +
+                            "Supply cần điều chỉnh lại các đơn trước khi tổng hợp.",
+                    date, totalTypes, getMaxTypesPerDay()));
+        }
+
+        // Lúc này splitIntoBatches luôn trả về đúng 1 batch
         List<List<AggregatedFoodData>> batchGroups = splitIntoBatches(
                 new ArrayList<>(foodMap.values()), orders);
 
-        List<SupplyBatch> savedBatches = new ArrayList<>();
-        LocalDate batchDate = date;
+        SupplyBatch batch = buildAndSaveBatch(batchGroups.get(0), date, 1, 1);
 
-        for (int i = 0; i < batchGroups.size(); i++) {
-            List<AggregatedFoodData> group = batchGroups.get(i);
-            SupplyBatch batch = buildAndSaveBatch(group, batchDate, i + 1, batchGroups.size());
-            savedBatches.add(batch);
-            batchDate = batchDate.plusDays(1);
-        }
+        log.info("[RE-AGGREGATE] Date={} → Created 1 new batch", date);
 
-        log.info("[RE-AGGREGATE] Date={} → Created {} new batch(es)", date, savedBatches.size());
-
-        return savedBatches.stream().map(this::toResponse).collect(Collectors.toList());
+        return List.of(toResponse(batch));
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 3. Get all batchs
+    // 3. Get all batches
     // ═══════════════════════════════════════════════════════════════
     @Transactional
     public List<SupplyBatchResponse> getAllBatches() {
@@ -213,9 +248,8 @@ public class SupplyService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 3. FLUSH EARLY - Gửi ngay cho Central không đợi cuối ngày
+    // 4. FLUSH EARLY - Gửi ngay cho Central không đợi cuối ngày
     //    Dùng khi có đơn gấp HIGH priority cần xử lý sớm
-    //    Tình huống: Store cần gấp ít món, không muốn đợi gom với đơn khác
     // ═══════════════════════════════════════════════════════════════
     @Transactional
     public SupplyBatchResponse flushHighPriorityOrders(LocalDate date) {
@@ -224,7 +258,8 @@ public class SupplyService {
                         OrderStatus.WAITING_FOR_PRODUCTION, date, 1);
 
         if (highPriorityOrders.isEmpty()) {
-            throw new IllegalStateException("Không có đơn HIGH priority nào với status WAITING_FOR_PRODUCTION trong ngày " + date);
+            throw new IllegalStateException(
+                    "Không có đơn HIGH priority nào với status WAITING_FOR_PRODUCTION trong ngày " + date);
         }
 
         Map<String, AggregatedFoodData> foodMap = aggregateFoods(highPriorityOrders);
@@ -232,7 +267,6 @@ public class SupplyService {
         int totalTypes    = foodMap.size();
         int totalQuantity = foodMap.values().stream().mapToInt(f -> f.totalQty).sum();
 
-        // Validate vẫn phải trong giới hạn của 1 batch
         if (totalTypes > getMaxTypesPerDay() || totalQuantity > getMaxQuantityPerDay()) {
             throw new IllegalStateException(String.format(
                     "Đơn HIGH priority vượt giới hạn 1 batch: %d loại (max %d), %d món (max %d). " +
@@ -270,7 +304,7 @@ public class SupplyService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 4. SEND BATCH TO CENTRAL - Supply xác nhận gửi batch đến central
+    // 5. SEND BATCH TO CENTRAL - Supply xác nhận gửi batch đến central
     //    Sau bước aggregate, batch ở trạng thái DRAFT.
     //    Supply review xong → gọi API này để gửi chính thức
     // ═══════════════════════════════════════════════════════════════
@@ -294,8 +328,8 @@ public class SupplyService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 5. UPDATE BATCH STATUS - Central kitchen cập nhật tiến độ
-    //    SENT → IN_PRODUCTION → DELIVERED
+    // 6. UPDATE BATCH STATUS - Central kitchen cập nhật tiến độ
+    //    SENT → IN_PRODUCTION → PRODUCTION_COMPLETED
     // ═══════════════════════════════════════════════════════════════
     @Transactional
     public SupplyBatchResponse updateBatchStatus(String batchId, BatchStatus newStatus) {
@@ -307,7 +341,7 @@ public class SupplyService {
         batch.setStatus(newStatus);
         SupplyBatch saved = supplyBatchRepository.save(batch);
 
-        // ── Khi sản xuất hoàn thành → update tất cả orders liên quan ──
+        // Khi sản xuất hoàn thành → update tất cả orders liên quan
         if (newStatus == BatchStatus.PRODUCTION_COMPLETED) {
             updateRelatedOrdersToReadyToPick(saved);
         }
@@ -323,18 +357,15 @@ public class SupplyService {
      * sourceDetail format: "ORD006 (STORE-D1-001): 20, ORD007 (STORE-D2-001): 15"
      */
     private void updateRelatedOrdersToReadyToPick(SupplyBatch batch) {
-        // Thu thập tất cả orderId xuất hiện trong sourceDetail của batch
         Set<String> orderIds = new HashSet<>();
 
         for (SupplyBatchItem item : batch.getItems()) {
             String sourceDetail = item.getSourceDetail();
             if (sourceDetail == null || sourceDetail.isBlank()) continue;
 
-            // Mỗi entry có dạng: "ORD006 (STORE-D1-001): 20"
-            // OrderId là token đầu tiên trước dấu cách
             for (String entry : sourceDetail.split(",")) {
                 String trimmed = entry.trim();
-                if (trimmed.startsWith("[")) continue; // bỏ qua "[Manual]" hay "[Đã chỉnh...]"
+                if (trimmed.startsWith("[")) continue;
                 int spaceIdx = trimmed.indexOf(' ');
                 if (spaceIdx > 0) {
                     orderIds.add(trimmed.substring(0, spaceIdx));
@@ -343,7 +374,8 @@ public class SupplyService {
         }
 
         if (orderIds.isEmpty()) {
-            log.warn("[PRODUCTION_COMPLETED] Batch {} không parse được orderId nào từ sourceDetail", batch.getBatchId());
+            log.warn("[PRODUCTION_COMPLETED] Batch {} không parse được orderId nào từ sourceDetail",
+                    batch.getBatchId());
             return;
         }
 
@@ -366,7 +398,7 @@ public class SupplyService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 7. GET BATCHES BY DATE - Xem tất cả batch của một ngày
+    // 7. GET BATCHES BY DATE
     // ═══════════════════════════════════════════════════════════════
     @Transactional
     public List<SupplyBatchResponse> getBatchesByDate(LocalDate date) {
@@ -406,7 +438,8 @@ public class SupplyService {
         if (batch.getStatus() == BatchStatus.IN_PRODUCTION
                 || batch.getStatus() == BatchStatus.PRODUCTION_COMPLETED) {
             throw new IllegalStateException(
-                    "Không thể huỷ batch đang sản xuất hoặc đã hoàn thành. Trạng thái: " + batch.getStatus());
+                    "Không thể huỷ batch đang sản xuất hoặc đã hoàn thành. Trạng thái: "
+                            + batch.getStatus());
         }
 
         batch.setStatus(BatchStatus.CANCELLED);
@@ -434,8 +467,6 @@ public class SupplyService {
 
     // ═══════════════════════════════════════════════════════════════
     // 12. EDIT ITEM TRONG BATCH
-    //     Chỉ chỉnh centralFoodId và quantity
-    //     foodName, sourceDetail tự fill lại từ CentralFoods
     //     Chỉ cho phép edit khi batch đang DRAFT
     // ═══════════════════════════════════════════════════════════════
     @Transactional
@@ -456,26 +487,21 @@ public class SupplyService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Item " + itemId + " không tồn tại trong batch " + batchId));
 
-        // Lấy thông tin món mới từ CentralFoods để fill foodName
         CentralFoods centralFood = centralFoodsRepository.findById(request.getCentralFoodId())
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Không tìm thấy món: " + request.getCentralFoodId()));
 
-        String oldFoodId  = item.getCentralFoodId();
-        int    oldQty     = item.getTotalQuantity();
+        String oldFoodId = item.getCentralFoodId();
+        int    oldQty    = item.getTotalQuantity();
 
-        // Cập nhật item
         item.setCentralFoodId(centralFood.getCentralFoodId());
-        item.setFoodName(centralFood.getFoodName());         // tự fill
+        item.setFoodName(centralFood.getFoodName());
         item.setTotalQuantity(request.getQuantity());
-        // Supply đã chỉnh tay → sourceDetail không còn chính xác, ghi rõ đã được điều chỉnh
         item.setSourceDetail("[Đã chỉnh thủ công bởi Supply] " + item.getSourceDetail());
 
-        // Cập nhật lại totalItems của batch
         int diff          = request.getQuantity() - oldQty;
         int newTotalItems = batch.getTotalItems() + diff;
 
-        // ✅ Validate giới hạn số lượng Central Kitchen
         if (newTotalItems > getMaxQuantityPerDay()) {
             throw new IllegalArgumentException(String.format(
                     "Không thể chỉnh sửa: tổng số món sau khi edit là %d, vượt giới hạn %d món/ngày.",
@@ -484,7 +510,6 @@ public class SupplyService {
 
         batch.setTotalItems(newTotalItems);
 
-        // Nếu đổi sang món mới (khác foodId) → cập nhật totalTypes nếu cần
         if (!oldFoodId.equals(request.getCentralFoodId())) {
             boolean oldFoodStillExists = batch.getItems().stream()
                     .anyMatch(i -> i.getCentralFoodId().equals(oldFoodId)
@@ -494,12 +519,11 @@ public class SupplyService {
                             && !i.getItemId().equals(itemId));
 
             int typesDelta = 0;
-            if (!oldFoodStillExists) typesDelta--;
+            if (!oldFoodStillExists)   typesDelta--;
             if (!newFoodAlreadyExists) typesDelta++;
 
             int newTotalTypes = batch.getTotalTypes() + typesDelta;
 
-            // ✅ Validate giới hạn số loại món
             if (newTotalTypes > getMaxTypesPerDay()) {
                 throw new IllegalArgumentException(String.format(
                         "Không thể chỉnh sửa: tổng số loại món sau khi edit là %d, vượt giới hạn %d loại/ngày.",
@@ -518,9 +542,8 @@ public class SupplyService {
 
     // ═══════════════════════════════════════════════════════════════
     // 13. REMOVE ITEM KHỎI BATCH
-    //     Xóa 1 item ra khỏi batch DRAFT
-    //     Tự cập nhật lại totalItems và totalTypes của batch
-    //     Không cho xóa nếu batch chỉ còn 1 item — dùng cancelBatch thay thế
+    //     Chỉ cho phép xóa khi batch đang DRAFT
+    //     Không cho xóa nếu batch chỉ còn 1 item
     // ═══════════════════════════════════════════════════════════════
     @Transactional
     public SupplyBatchResponse removeItemFromBatch(String batchId, String itemId) {
@@ -544,10 +567,8 @@ public class SupplyService {
                     "Batch chỉ còn 1 item, không thể xóa. Dùng API cancel batch nếu muốn hủy cả batch.");
         }
 
-        // Cập nhật totalItems và totalTypes trước khi xóa
         batch.setTotalItems(batch.getTotalItems() - item.getTotalQuantity());
         batch.setTotalTypes(batch.getTotalTypes() - 1);
-
         batch.getItems().remove(item);
 
         SupplyBatch saved = supplyBatchRepository.save(batch);
@@ -557,21 +578,24 @@ public class SupplyService {
         return toResponse(saved);
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // 14. CREATE MANUAL BATCH
+    // ═══════════════════════════════════════════════════════════════
     @Transactional
     public SupplyBatchResponse createManualBatch(CreateBatchRequest request) {
-
-        // Validate giới hạn central kitchen
         int totalTypes    = request.getItems().size();
         int totalQuantity = request.getItems().stream()
                 .mapToInt(CreateBatchRequest.BatchItemRequest::getQuantity).sum();
 
         if (totalTypes > getMaxTypesPerDay()) {
             throw new IllegalArgumentException(String.format(
-                    "Vượt giới hạn %d loại món/ngày. Hiện tại: %d loại.", getMaxTypesPerDay(), totalTypes));
+                    "Vượt giới hạn %d loại món/ngày. Hiện tại: %d loại.",
+                    getMaxTypesPerDay(), totalTypes));
         }
         if (totalQuantity > getMaxQuantityPerDay()) {
             throw new IllegalArgumentException(String.format(
-                    "Vượt giới hạn %d món/ngày. Hiện tại: %d món.", getMaxQuantityPerDay(), totalQuantity));
+                    "Vượt giới hạn %d món/ngày. Hiện tại: %d món.",
+                    getMaxQuantityPerDay(), totalQuantity));
         }
 
         String batchId = "BATCH-MANUAL-" + request.getBatchDate() + "-" + System.currentTimeMillis();
@@ -582,7 +606,9 @@ public class SupplyService {
                 .status(BatchStatus.DRAFT)
                 .totalItems(totalQuantity)
                 .totalTypes(totalTypes)
-                .note(request.getNote() != null ? "[Manual] " + request.getNote() : "[Manual] Tạo thủ công bởi Supply")
+                .note(request.getNote() != null
+                        ? "[Manual] " + request.getNote()
+                        : "[Manual] Tạo thủ công bởi Supply")
                 .build();
 
         for (CreateBatchRequest.BatchItemRequest itemReq : request.getItems()) {
@@ -593,7 +619,7 @@ public class SupplyService {
             SupplyBatchItem item = SupplyBatchItem.builder()
                     .itemId(UUID.randomUUID().toString())
                     .centralFoodId(food.getCentralFoodId())
-                    .foodName(food.getFoodName())       // tự fill
+                    .foodName(food.getFoodName())
                     .totalQuantity(itemReq.getQuantity())
                     .sourceDetail("[Manual] Supply tạo thủ công")
                     .build();
@@ -607,6 +633,7 @@ public class SupplyService {
         return toResponse(saved);
     }
 
+    // ─── Private helpers ──────────────────────────────────────────
 
     /**
      * Gom tất cả order items theo foodId.
@@ -632,7 +659,6 @@ public class SupplyService {
 
                 agg.totalQty += item.getQuantity();
 
-                // Key = "orderId (storeId)" để hiển thị rõ nguồn đơn
                 String sourceKey = order.getOrderId() + " (" + order.getStoreId() + ")";
                 agg.sourceMap.merge(sourceKey, item.getQuantity(), Integer::sum);
             }
@@ -642,43 +668,35 @@ public class SupplyService {
     }
 
     /**
-     * Chia danh sách món thành các batch theo giới hạn:
-     * - MAX 10 loại / batch
-     * - MAX 40 món / batch
-     *
-     * Chiến lược: Đơn có món với tổng lượng lớn → ưu tiên vào batch đầu (giao sớm hơn).
-     * Món dư → batch ngày hôm sau, hôm sau nữa...
-     *
-     * Lưu ý: Nếu 1 món đã có totalQty > 40 → tự động tách sang nhiều batch theo ngày.
+     * Chia danh sách món thành các batch theo giới hạn.
+     * Với logic mới, input đã được validate ≤ giới hạn nên luôn trả về đúng 1 batch.
+     * Giữ nguyên để flushHighPriorityOrders có thể dùng chung.
      */
     private List<List<AggregatedFoodData>> splitIntoBatches(
             List<AggregatedFoodData> foods, List<Order> orders) {
 
-        // Sắp xếp theo ưu tiên: món từ đơn HIGH priority lên trước
         Set<String> highPriorityFoodIds = getHighPriorityFoodIds(orders);
         foods.sort((a, b) -> {
             boolean aHigh = highPriorityFoodIds.contains(a.centralFoodId);
             boolean bHigh = highPriorityFoodIds.contains(b.centralFoodId);
             if (aHigh != bHigh) return aHigh ? -1 : 1;
-            return Integer.compare(b.totalQty, a.totalQty); // Nhiều hơn → trước
+            return Integer.compare(b.totalQty, a.totalQty);
         });
 
-        List<List<AggregatedFoodData>> result = new ArrayList<>();
-        List<AggregatedFoodData> currentBatch = new ArrayList<>();
+        List<List<AggregatedFoodData>> result     = new ArrayList<>();
+        List<AggregatedFoodData>       currentBatch = new ArrayList<>();
         int currentQty = 0;
 
         for (AggregatedFoodData food : foods) {
             int remaining = food.totalQty;
 
             while (remaining > 0) {
-                // Tính slot còn lại trong batch hiện tại
                 int qtySlot  = getMaxQuantityPerDay() - currentQty;
                 int typeSlot = getMaxTypesPerDay()    - currentBatch.size();
 
                 boolean canFit = qtySlot > 0 && typeSlot > 0;
 
                 if (!canFit) {
-                    // Batch đầy → đóng batch này, mở batch mới
                     result.add(currentBatch);
                     currentBatch = new ArrayList<>();
                     currentQty   = 0;
@@ -687,7 +705,6 @@ public class SupplyService {
 
                 int take = Math.min(remaining, qtySlot);
 
-                // Nếu món này đã có trong batch hiện tại (do split) → cộng vào
                 AggregatedFoodData existing = currentBatch.stream()
                         .filter(f -> f.centralFoodId.equals(food.centralFoodId))
                         .findFirst().orElse(null);
@@ -695,7 +712,6 @@ public class SupplyService {
                 if (existing != null) {
                     existing.totalQty += take;
                 } else {
-                    // Tạo bản sao với số lượng = take để đưa vào batch này
                     AggregatedFoodData slice = AggregatedFoodData.builder()
                             .centralFoodId(food.centralFoodId)
                             .foodName(food.foodName)
@@ -747,7 +763,7 @@ public class SupplyService {
         SupplyBatch batch = SupplyBatch.builder()
                 .batchId(batchId)
                 .batchDate(batchDate)
-                .status(BatchStatus.DRAFT)  // DRAFT → supply review → gửi manual
+                .status(BatchStatus.DRAFT)
                 .totalItems(totalQty)
                 .totalTypes(totalTypes)
                 .note(note)
@@ -767,21 +783,7 @@ public class SupplyService {
         return supplyBatchRepository.save(batch);
     }
 
-    private String buildWarning(int totalTypes, int totalQuantity, int batchCount) {
-        if (batchCount <= 1) return null;
-
-        return String.format(
-                "Tổng %d loại món, %d món — vượt giới hạn 1 ngày (max %d loại, %d món). " +
-                        "Cần %d ngày để sản xuất hết. Đơn HIGH priority được ưu tiên vào batch đầu.",
-                totalTypes, totalQuantity,
-                getMaxTypesPerDay(), getMaxQuantityPerDay(),
-                batchCount);
-    }
-
     private void validateBatchStatusTransition(BatchStatus current, BatchStatus next) {
-        // DRAFT → SENT → IN_PRODUCTION → DELIVERED
-        // DRAFT → CANCELLED
-        // SENT  → CANCELLED
         Map<BatchStatus, Set<BatchStatus>> allowed = Map.of(
                 BatchStatus.DRAFT,                Set.of(BatchStatus.SENT, BatchStatus.CANCELLED),
                 BatchStatus.SENT,                 Set.of(BatchStatus.IN_PRODUCTION, BatchStatus.CANCELLED),
@@ -795,8 +797,6 @@ public class SupplyService {
                     "Không thể chuyển batch từ " + current + " → " + next);
         }
     }
-
-    // ─── toResponse ───────────────────────────────────────────────
 
     private SupplyBatchResponse toResponse(SupplyBatch batch) {
         List<SupplyBatchItemResponse> items = batch.getItems().stream()
@@ -822,7 +822,7 @@ public class SupplyService {
                 .build();
     }
 
-    // ─── Inner helper class (không cần entity, chỉ dùng nội bộ) ──
+    // ─── Inner helper class ───────────────────────────────────────
 
     @lombok.Data
     @lombok.Builder
@@ -832,9 +832,6 @@ public class SupplyService {
         int totalQty;
         Map<String, Integer> sourceMap; // "orderId (storeId)" → quantity
 
-        /**
-         * Build sourceDetail string với format: "ORD006 (STORE-D1-001): 20, ORD007 (STORE-D2-001): 20"
-         */
         String buildSourceDetailString() {
             if (sourceMap == null || sourceMap.isEmpty()) return "";
             return sourceMap.entrySet().stream()
