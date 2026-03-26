@@ -79,7 +79,7 @@ public class SupplyController {
 
 
     @GetMapping("/batches/all")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN', 'CENTRAL_KITCHEN_STAFF')")
     @Operation(summary = "Lấy tất cả lô sản xuất")
     public ResponseEntity<List<SupplyBatchResponse>> getAllBatches() {
         return ResponseEntity.ok(supplyService.getAllBatches());

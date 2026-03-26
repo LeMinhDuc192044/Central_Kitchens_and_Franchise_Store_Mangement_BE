@@ -15,6 +15,8 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.GhnMapper;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.mapper.GhnStatusMapper;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.RandomGeneratorUtil;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -87,7 +89,7 @@ public class GhnService {
 
 
         // ── Check Order phải ở trạng thái COOKING_DONE trước khi tạo đơn giao
-        if (order.getStatusOrder() != OrderStatus.COOKING_DONE) {
+        if (order.getStatusOrder() != OrderStatus.READY_TO_PICK) {
             throw new IllegalStateException(
                     "Order [" + order.getOrderId() + "] chưa hoàn tất nấu " +
                             "(current status: " + order.getStatusOrder() + "). " +
@@ -145,7 +147,7 @@ public class GhnService {
         // Step 4: Auto-calculate total weight and max dimensions from food items
         PackageDimensions dimensions = calculateDimensions(foods, centralFoods);
         log.info("Calculated package: weight={}g, {}x{}x{}cm",
-                dimensions.weight(), dimensions.length(), dimensions.width(), dimensions.height());
+                dimensions.getWeightKg(), dimensions.getLengthM(), dimensions.getWidthM(), dimensions.getHeightM());
 
         // Step 5: Convert to GHN items
         List<GhnItem> items = ghnMapper.convertToGhnItems(foods, centralFoods);
@@ -738,10 +740,10 @@ public class GhnService {
                 .to_ward_code(store.getWard())             // ← from store
                 .to_district_id(store.getDistrict())       // ← from store
                 .cod_amount(codAmount)
-                .weight(dim.weight())                      // ← calculated
-                .length(dim.length())                      // ← calculated
-                .width(dim.width())                        // ← calculated
-                .height(dim.height())                      // ← calculated
+                .weight((int) Math.round(dim.getWeightKg()))   // kg  — round to nearest
+                .length((int) Math.round(dim.getLengthM()))    // m   — round to nearest
+                .width( (int) Math.round(dim.getWidthM()))     // m   — round to nearest
+                .height((int) Math.round(dim.getHeightM()))                  // ← calculated
                 .service_type(ShipServiceType.STANDARD)
                 .items(items)
                 .client_order_code(clientOrderCode)
@@ -766,10 +768,10 @@ public class GhnService {
         requestBody.put("to_ward_code",      store.getWard());          // ← store
         requestBody.put("to_district_id",    store.getDistrict());      // ← store
         requestBody.put("cod_amount",        codAmount);
-        requestBody.put("weight",            dim.weight());             // ← calculated
-        requestBody.put("length",            dim.length());             // ← calculated
-        requestBody.put("width",             dim.width());              // ← calculated
-        requestBody.put("height",            dim.height());             // ← calculated
+        requestBody.put("weight",            dim.getWeightKg());             // ← calculated
+        requestBody.put("length",            dim.getLengthM());             // ← calculated
+        requestBody.put("width",             dim.getWidthM());              // ← calculated
+        requestBody.put("height",            dim.getHeightM());             // ← calculated
         requestBody.put("service_type_id",   (Integer) 2);
         requestBody.put("items",             items);
         requestBody.put("client_order_code", clientOrderCode);
@@ -809,17 +811,16 @@ public class GhnService {
         return ghnMapper.toShipInvoiceResponse(invoice);
     }
 
-    private record PackageDimensions(int weight, int length, int width, int height) {}
 
     private PackageDimensions calculateDimensions(Map<String, Integer> foods,
                                                   List<CentralFoods> centralFoods) {
         Map<String, CentralFoods> foodMap = centralFoods.stream()
                 .collect(Collectors.toMap(CentralFoods::getCentralFoodId, f -> f));
 
-        int totalWeight = 0;
-        int maxLength   = 0;
-        int maxWidth    = 0;
-        int maxHeight   = 0;
+        double totalWeightKg = 0;   // ✅ g  → kg
+        double maxLengthM    = 0;   // ✅ cm → m
+        double maxWidthM     = 0;   // ✅ cm → m
+        double totalHeightM  = 0;
 
         for (Map.Entry<String, Integer> entry : foods.entrySet()) {
             String foodId  = entry.getKey();
@@ -833,13 +834,28 @@ public class GhnService {
                                 "Please update the food record.");
             }
 
-            totalWeight += food.getWeight() * quantity;
-            maxLength    = Math.max(maxLength, food.getLength());
-            maxWidth     = Math.max(maxWidth,  food.getWidth());
-            maxHeight   += food.getHeight() * quantity; // stack height for multiple items
+            double weightKg = food.getWeight() / 1000.0;
+            totalWeightKg  += weightKg * quantity;
+
+            // ✅ Convert cm → m
+            double lengthM = food.getLength() / 100.0;
+            double widthM  = food.getWidth()  / 100.0;
+            double heightM = food.getHeight() / 100.0;
+
+            // max footprint (largest single item wins)
+            maxLengthM = Math.max(maxLengthM, lengthM);
+            maxWidthM  = Math.max(maxWidthM,  widthM);
+
+            // stacked height — each item added on top
+            totalHeightM += heightM * quantity;
         }
 
-        return new PackageDimensions(totalWeight, maxLength, maxWidth, maxHeight);
+        totalWeightKg = Math.round(totalWeightKg * 1000.0) / 1000.0;
+        maxLengthM    = Math.round(maxLengthM    * 1000.0) / 1000.0;
+        maxWidthM     = Math.round(maxWidthM     * 1000.0) / 1000.0;
+        totalHeightM  = Math.round(totalHeightM  * 1000.0) / 1000.0;
+
+        return new PackageDimensions(totalWeightKg, maxLengthM, maxWidthM, totalHeightM);
     }
 
     private Map<String, Integer> extractFoodsFromOrderDetail(OrderDetail orderDetail) {
@@ -862,5 +878,14 @@ public class GhnService {
                 foods.size(), orderDetail.getOrderDetailId(), foods);
 
         return foods;
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class PackageDimensions {
+        private double weightKg;  // kg  (was int grams)
+        private double lengthM;   // m   (was int cm)
+        private double widthM;    // m   (was int cm)
+        private double heightM;   // m   (was int cm)
     }
 }
