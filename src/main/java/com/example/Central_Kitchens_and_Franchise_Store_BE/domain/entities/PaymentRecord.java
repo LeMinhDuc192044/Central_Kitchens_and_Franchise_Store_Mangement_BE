@@ -41,4 +41,11 @@ public class PaymentRecord {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "payment_id")
+    private String paymentId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_id", referencedColumnName = "payment_id", insertable = false, updatable = false)
+    private Payment payment;
 }
