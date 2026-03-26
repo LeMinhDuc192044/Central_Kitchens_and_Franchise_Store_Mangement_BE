@@ -21,7 +21,7 @@ public interface FranchiseStorePaymentRecordRepository
     List<FranchiseStorePaymentRecord> findByStoreId(String storeId);
 
     Optional<FranchiseStorePaymentRecord> findByStoreIdAndStatusAndRecordType(
-            String storeId, String status, PaymentRecordType recordType);
+            String storeId, PaymentStatus status, PaymentRecordType recordType);
 
     // ── Find all DEBT records for this store ───────────────────────────────
     List<FranchiseStorePaymentRecord> findByStoreIdAndRecordType(
@@ -29,8 +29,8 @@ public interface FranchiseStorePaymentRecordRepository
 
     // ── Find all unpaid MONTHLY records past pay date ──────────────────────
     @Query("SELECT r FROM FranchiseStorePaymentRecord r " +
-            "WHERE r.recordType = 'MONTHLY' " +
-            "AND r.status = 'PENDING' " +
+            "WHERE r.recordType = com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentRecordType.MONTHLY " +
+            "AND r.status = com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus.PENDING " +
             "AND r.payDate < :now")
     List<FranchiseStorePaymentRecord> findOverdueMonthlyRecords(
             @Param("now") LocalDateTime now);

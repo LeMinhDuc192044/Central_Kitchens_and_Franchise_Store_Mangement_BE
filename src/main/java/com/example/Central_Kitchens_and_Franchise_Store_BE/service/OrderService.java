@@ -86,7 +86,7 @@ public class OrderService {
             // ── Find or create ONE MONTHLY record per store ────────────────────────
             FranchiseStorePaymentRecord monthlyRecord = franchiseStorePaymentRecordRepository
                     .findByStoreIdAndStatusAndRecordType(
-                            request.getStoreId(), "PENDING", PaymentRecordType.MONTHLY)
+                            request.getStoreId(), PaymentStatus.PENDING, PaymentRecordType.MONTHLY)
                     .orElseGet(() -> {
                         log.info("Creating new MONTHLY record for store [{}]", request.getStoreId());
                         return FranchiseStorePaymentRecord.builder()
