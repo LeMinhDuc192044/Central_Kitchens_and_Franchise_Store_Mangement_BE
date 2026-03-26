@@ -132,24 +132,24 @@ public class DataInitializer {
             createCategoryIfNotExists("CE_BU_904561", "Burger");
 
 // ── Foods: Gà ────────────────────────────────────
-            createFoodIfNotExists("CE_CH_FO_000001", "Gà Phô Mai",                50, 65000, "CE_CH_482917", 8,  20, 500, 15);
-            createFoodIfNotExists("CE_CH_FO_000002", "Cánh Gà Chiên Mắm Tỏi Ớt", 50, 70000, "CE_CH_482917", 6,  18, 350, 12);
-            createFoodIfNotExists("CE_CH_FO_000003", "Gà Sốt Teriyaki",           50, 72000, "CE_CH_482917", 9,  22, 600, 16);
+            createFoodIfNotExists("CE_CH_FO_000001", "Gà Phô Mai",                50, 65000, "CE_CH_482917", 2,  3, 5, 5);
+            createFoodIfNotExists("CE_CH_FO_000002", "Cánh Gà Chiên Mắm Tỏi Ớt", 50, 70000, "CE_CH_482917", 4,  4, 3, 3);
+            createFoodIfNotExists("CE_CH_FO_000003", "Gà Sốt Teriyaki",           50, 72000, "CE_CH_482917", 5,  5, 6, 4);
 
 // ── Foods: Mỳ Ý ──────────────────────────────────
-            createFoodIfNotExists("CE_NO_FO_000001", "Mỳ Ý Sốt Bò Bằm",          50, 68000, "CE_NO_739204", 5,  28, 450, 14);
-            createFoodIfNotExists("CE_NO_FO_000002", "Mỳ Ý Cua",                  50, 75000, "CE_NO_739204", 5,  28, 400, 14);
-            createFoodIfNotExists("CE_NO_FO_000003", "Mỳ Ý Tôm Sốt Kem",          50, 78000, "CE_NO_739204", 5,  28, 420, 14);
+            createFoodIfNotExists("CE_NO_FO_000001", "Mỳ Ý Sốt Bò Bằm",          50, 68000, "CE_NO_739204", 5,  4, 5, 8);
+            createFoodIfNotExists("CE_NO_FO_000002", "Mỳ Ý Cua",                  50, 75000, "CE_NO_739204", 5,  5, 6, 7);
+            createFoodIfNotExists("CE_NO_FO_000003", "Mỳ Ý Tôm Sốt Kem",          50, 78000, "CE_NO_739204", 5,  8, 3, 8);
 
 // ── Foods: Bánh ───────────────────────────────────
-            createFoodIfNotExists("CE_CA_FO_000001", "Bánh Kem Socola",            30, 85000, "CE_CA_156893", 12, 22, 600, 22);
-            createFoodIfNotExists("CE_CA_FO_000002", "Bánh Kem Dâu Tây",           30, 85000, "CE_CA_156893", 10, 20, 550, 20);
-            createFoodIfNotExists("CE_CA_FO_000003", "Bánh Kem Muffin Vani",       30, 55000, "CE_CA_156893", 6,  8,  120, 8);
+            createFoodIfNotExists("CE_CA_FO_000001", "Bánh Kem Socola",            30, 85000, "CE_CA_156893", 3,  6, 9, 3);
+            createFoodIfNotExists("CE_CA_FO_000002", "Bánh Kem Dâu Tây",           30, 85000, "CE_CA_156893", 5,  5, 10, 5);
+            createFoodIfNotExists("CE_CA_FO_000003", "Bánh Kem Muffin Vani",       30, 55000, "CE_CA_156893", 6,  3, 8, 4);
 
 // ── Foods: Burger ─────────────────────────────────
-            createFoodIfNotExists("CE_BU_FO_000001", "Burger Bò",                  50, 75000, "CE_BU_904561", 10, 14, 320, 14);
-            createFoodIfNotExists("CE_BU_FO_000002", "Burger Gà",                  50, 70000, "CE_BU_904561", 9,  13, 280, 13);
-            createFoodIfNotExists("CE_BU_FO_000003", "Burger Phô Mai",             50, 72000, "CE_BU_904561", 10, 14, 300, 14);
+            createFoodIfNotExists("CE_BU_FO_000001", "Burger Bò",                  50, 75000, "CE_BU_904561", 5, 6, 3, 3);
+            createFoodIfNotExists("CE_BU_FO_000002", "Burger Gà",                  50, 70000, "CE_BU_904561", 4,  8, 5, 4);
+            createFoodIfNotExists("CE_BU_FO_000003", "Burger Phô Mai",             50, 72000, "CE_BU_904561", 5, 4, 4, 5);
 
             // ── Kitchen Config ────────────────────────────────
             createConfigIfNotExists("MAX_TYPES_PER_DAY",    "10", "Tối đa số loại món Central Kitchen xử lý mỗi ngày");
