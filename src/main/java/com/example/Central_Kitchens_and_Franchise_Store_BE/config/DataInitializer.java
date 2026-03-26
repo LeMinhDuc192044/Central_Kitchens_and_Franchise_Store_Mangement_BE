@@ -25,6 +25,7 @@ public class DataInitializer {
     private final FranchiseStoreRepository franchiseStoreRepository;
     private final CentralFoodCategoryRepository foodCategoryRepository;
     private final CentralFoodsRepository centralFoodRepository;
+    private final KitchenConfigRepository kitchenConfigRepository;
 
     @Bean
     CommandLineRunner initTestUser() {
@@ -149,6 +150,10 @@ public class DataInitializer {
             createFoodIfNotExists("CE_BU_FO_000001", "Burger Bò",                  50, 75000, "CE_BU_904561", 10, 14, 320, 14);
             createFoodIfNotExists("CE_BU_FO_000002", "Burger Gà",                  50, 70000, "CE_BU_904561", 9,  13, 280, 13);
             createFoodIfNotExists("CE_BU_FO_000003", "Burger Phô Mai",             50, 72000, "CE_BU_904561", 10, 14, 300, 14);
+
+            // ── Kitchen Config ────────────────────────────────
+            createConfigIfNotExists("MAX_TYPES_PER_DAY",    "10", "Tối đa số loại món Central Kitchen xử lý mỗi ngày");
+            createConfigIfNotExists("MAX_QUANTITY_PER_DAY", "40", "Tối đa tổng số món Central Kitchen xử lý mỗi ngày");
         };
 
 
@@ -266,5 +271,17 @@ public class DataInitializer {
                 .build();
 
         centralFoodRepository.save(food);
+    }
+
+    private void createConfigIfNotExists(String key, String value, String description) {
+        if (kitchenConfigRepository.existsById(key)) return;
+
+        kitchenConfigRepository.save(
+                KitchenConfig.builder()
+                        .configKey(key)
+                        .configValue(value)
+                        .description(description)
+                        .build()
+        );
     }
 }

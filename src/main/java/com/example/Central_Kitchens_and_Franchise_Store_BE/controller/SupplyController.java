@@ -111,14 +111,24 @@ public class SupplyController {
         return ResponseEntity.ok(supplyService.getBatchById(batchId));
     }
 
-    @PatchMapping("/batches/{batchId}/defer")
+//    @PatchMapping("/batches/{batchId}/defer")
+//    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+//    @Operation(summary = "Dời lịch sản xuất sang ngày khác (chỉ DRAFT)")
+//    public ResponseEntity<SupplyBatchResponse> deferBatch(
+//            @PathVariable String batchId,
+//            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate newDate,
+//            @RequestParam(required = false, defaultValue = "") String reason) {
+//        return ResponseEntity.ok(supplyService.deferBatch(batchId, newDate, reason));
+//    }
+
+
+
+    @GetMapping("/batch-dates")
     @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
-    @Operation(summary = "Dời lịch sản xuất sang ngày khác (chỉ DRAFT)")
-    public ResponseEntity<SupplyBatchResponse> deferBatch(
-            @PathVariable String batchId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate newDate,
-            @RequestParam(required = false, defaultValue = "") String reason) {
-        return ResponseEntity.ok(supplyService.deferBatch(batchId, newDate, reason));
+    @Operation(summary = "Xem những ngày đã có lịch sản xuất")
+    public ResponseEntity<List<LocalDate>> getAllBatchDates() {
+        List<LocalDate> dates = supplyService.getAllBatchDates();
+        return ResponseEntity.ok(dates);
     }
 
     @DeleteMapping("/batches/{batchId}")
