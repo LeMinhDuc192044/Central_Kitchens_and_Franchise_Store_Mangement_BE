@@ -8,6 +8,7 @@ public enum OrderStatus {
     COOKING_DONE,
     WAITING_FOR_UPDATE,
     WAITING_FOR_PRODUCTION,
+    COMPLETE,
     READY_TO_PICK,      // GHN: ready_to_pick
     PICKING,            // GHN: picking
     PICKED,             // GHN: picked
