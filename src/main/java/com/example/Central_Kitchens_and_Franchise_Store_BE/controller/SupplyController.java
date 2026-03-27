@@ -68,7 +68,7 @@ public class SupplyController {
 
 
     @PatchMapping("/batches/{batchId}/status")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN','CENTRAL_KITCHEN_STAFF')")
     @Operation(summary = "Cập nhật trạng thái lô: SENT → IN_PRODUCTION → DELIVERED")
     public ResponseEntity<SupplyBatchResponse> updateBatchStatus(
             @PathVariable String batchId,
@@ -79,14 +79,14 @@ public class SupplyController {
 
 
     @GetMapping("/batches/all")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN', 'CENTRAL_KITCHEN_STAFF')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN', 'CENTRAL_KITCHEN_STAFF')")
     @Operation(summary = "Lấy tất cả lô sản xuất")
     public ResponseEntity<List<SupplyBatchResponse>> getAllBatches() {
         return ResponseEntity.ok(supplyService.getAllBatches());
     }
 
     @GetMapping("/batches")
-    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_STAFF', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'CENTRAL_KITCHEN_STAFF', 'MANAGER', 'ADMIN')")
     @Operation(summary = "Central Lấy lô theo ngày sản xuất (batchDate, format yyyy-MM-dd)")
     public ResponseEntity<List<SupplyBatchResponse>> getBatchesByDate(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {

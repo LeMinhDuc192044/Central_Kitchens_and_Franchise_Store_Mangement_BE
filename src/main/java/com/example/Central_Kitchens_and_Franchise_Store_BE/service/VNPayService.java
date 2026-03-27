@@ -52,8 +52,11 @@ public class VNPayService {
         if (order.getPaymentMethod() != PaymentMethod.CREDIT) {
             throw new RuntimeException("Chỉ CREDIT mới được thanh toán qua VNPay.");
         }
-
-        if (!PaymentOption.PAY_AFTER_ORDER.equals(order.getPaymentOption())) {
+        boolean canPay =
+                PaymentOption.PAY_AFTER_ORDER.equals(order.getPaymentOption()) ||
+                        (PaymentOption.PAY_AFTER_DELIVERY.equals(order.getPaymentOption())
+                                && OrderStatus.DELIVERED.equals(order.getStatusOrder()));
+        if (!canPay) {
             throw new RuntimeException("Đơn hàng " + orderId + " không hỗ trợ thanh toán ngay.");
         }
 
