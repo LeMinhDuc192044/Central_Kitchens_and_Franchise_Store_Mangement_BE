@@ -46,7 +46,7 @@ public class CentralFoodsController {
             summary = "Decrease central foods based on order",
             description = "Decrease central foods stock based on order items"
     )
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CENTRAL_KITCHEN_STAFF','SUPPLY_COORDINATOR')")
     @PutMapping("/decrease/{orderId}")
     public ResponseEntity<FoodDecreaseResponse> decreaseFoodAmountByOrder(
             @Parameter(description = "Order id", required = true)
