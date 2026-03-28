@@ -347,5 +347,13 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrdersByMonthAndStore(month, year, storeId));
     }
 
+    @GetMapping("/by-order-date")
+    @Operation(summary = "Get orders by order date")
+    @PreAuthorize("hasAnyRole('SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    public ResponseEntity<List<OrderResponse>> getOrdersByOrderDate(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate orderDate) {
+        return ResponseEntity.ok(orderService.getOrdersByOrderDate(orderDate));
+    }
+
 
 }

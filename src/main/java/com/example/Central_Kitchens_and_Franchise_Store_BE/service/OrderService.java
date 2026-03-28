@@ -248,6 +248,17 @@ public class OrderService {
     }
 
     @Transactional
+    public List<OrderResponse> getOrdersByOrderDate(LocalDate orderDate) {
+        if (orderDate == null) {
+            throw new IllegalArgumentException("Order date không được để trống");
+        }
+        return orderRepository.findByOrderDate(orderDate)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
     public OrderResponse cancelOrder(String orderId, String cancelReason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
