@@ -356,6 +356,35 @@ public class SupplyService {
         return toResponse(saved);
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // 6. DEFER BATCH - Dời batch sang ngày khác
+    //    Tình huống: Đơn LOW priority, store không cần gấp,
+    //    dời sang tuần sau để không chiếm slot ngày hôm nay
+    // ═══════════════════════════════════════════════════════════════
+    @Transactional
+    public SupplyBatchResponse deferBatch(String batchId, LocalDate newDate, String reason) {
+        SupplyBatch batch = supplyBatchRepository.findById(batchId)
+                .orElseThrow(() -> new EntityNotFoundException("Batch not found: " + batchId));
+
+        if (batch.getStatus() != BatchStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "Chỉ có thể dời batch ở trạng thái DRAFT. Hiện tại: " + batch.getStatus());
+        }
+        if (newDate.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Ngày mới không thể là ngày trong quá khứ");
+        }
+
+        LocalDate oldDate = batch.getBatchDate();
+        batch.setBatchDate(newDate);
+        batch.setNote((batch.getNote() != null ? batch.getNote() + " | " : "")
+                + "Dời từ " + oldDate + " → " + newDate + ". Lý do: " + reason);
+
+        SupplyBatch saved = supplyBatchRepository.save(batch);
+        log.info("[DEFER] Batch {} dời từ {} → {}, lý do: {}", batchId, oldDate, newDate, reason);
+
+        return toResponse(saved);
+    }
+
     /**
      * Parse sourceDetail của từng item trong batch để lấy orderId,
      * sau đó update tất cả orders đó → READY_TO_PICK.

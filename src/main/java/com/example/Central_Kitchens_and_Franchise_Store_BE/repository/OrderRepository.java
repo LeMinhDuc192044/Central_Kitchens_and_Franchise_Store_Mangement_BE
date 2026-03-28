@@ -92,4 +92,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("year")    int year,
             @Param("storeId") String storeId
     );
+
+    @Query("SELECT o FROM Order o WHERE o.orderDate = :orderDate")
+    List<Order> findByOrderDate(@Param("orderDate") LocalDate orderDate);
 }
