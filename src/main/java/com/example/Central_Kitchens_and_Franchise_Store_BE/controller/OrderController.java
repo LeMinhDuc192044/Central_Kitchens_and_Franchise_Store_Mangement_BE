@@ -1,10 +1,7 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.controller;
 
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.ApiResult;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderInvoiceResponse;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.*;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailResponse;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
@@ -326,6 +323,28 @@ public class OrderController {
             @PathVariable String orderId,
             @RequestBody EditOrderItemsRequest request) {
         return ResponseEntity.ok(orderService.editMultipleOrderDetailItems(orderId, request));
+    }
+
+    @GetMapping("/monthly")
+    @Operation(summary = "Get all orders by month",
+            description = "Returns all orders across all stores for a given month/year")
+    public ResponseEntity<MonthlyOrderResponse> getAllOrdersByMonth(
+            @RequestParam int month,
+            @RequestParam int year) {
+
+        return ResponseEntity.ok(orderService.getAllOrdersByMonth(month, year));
+    }
+
+    // ✅ GET /orders/monthly/store/{storeId}?month=3&year=2026
+    @GetMapping("/monthly/store/{storeId}")
+    @Operation(summary = "Get orders by month and store",
+            description = "Returns all orders for a specific store in a given month/year")
+    public ResponseEntity<MonthlyOrderResponse> getOrdersByMonthAndStore(
+            @PathVariable String storeId,
+            @RequestParam int month,
+            @RequestParam int year) {
+
+        return ResponseEntity.ok(orderService.getOrdersByMonthAndStore(month, year, storeId));
     }
 
 

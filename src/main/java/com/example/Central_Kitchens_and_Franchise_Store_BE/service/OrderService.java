@@ -1,5 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.service;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.MonthlyOrderResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailItemResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.OrderDetailResponse;
@@ -132,6 +133,43 @@ public class OrderService {
         return orderRepository.findByStatusOrder(status).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public MonthlyOrderResponse getAllOrdersByMonth(int month, int year) {
+        validateMonthYear(month, year);
+
+        List<Order> orders = orderRepository.findAllByMonth(month, year);
+
+        log.info("Found {} orders for {}/{}", orders.size(), month, year);
+
+        return MonthlyOrderResponse.builder()
+                .month(month)
+                .year(year)
+                .storeId(null)  // all stores
+                .totalOrders(orders.size())
+                .orders(orders.stream().map(this::toResponse).toList())
+                .build();
+    }
+
+    public MonthlyOrderResponse getOrdersByMonthAndStore(int month, int year, String storeId) {
+        validateMonthYear(month, year);
+
+        if (storeId == null || storeId.isBlank()) {
+            throw new IllegalArgumentException("Store ID is required");
+        }
+
+        List<Order> orders = orderRepository.findAllByMonthAndStore(month, year, storeId);
+
+        log.info("Found {} orders for store {} in {}/{}", orders.size(), storeId, month, year);
+
+        return MonthlyOrderResponse.builder()
+                .month(month)
+                .year(year)
+                .storeId(storeId)
+                .totalOrders(orders.size())
+                .orders(orders.stream().map(this::toResponse).toList())
+                .build();
     }
 
     // 2. LẤY ORDER THEO ID
@@ -603,6 +641,15 @@ public class OrderService {
                 .amount(orderDetail.getAmount())
                 .items(items)
                 .build();
+    }
+
+    private void validateMonthYear(int month, int year) {
+        if (month < 1 || month > 12) {
+            throw new IllegalArgumentException("Month must be between 1 and 12");
+        }
+        if (year < 2000 || year > LocalDate.now().getYear() + 1) {
+            throw new IllegalArgumentException("Invalid year: " + year);
+        }
     }
 
 
