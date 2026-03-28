@@ -51,4 +51,45 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     List<Order> findByStatusOrderAndOrderDateAndPriorityLevel(OrderStatus orderStatus, LocalDate date, int i);
 
     List<Order> findByStatusOrderAndOrderDate(OrderStatus orderStatus, LocalDate date);
+
+    @Query("""
+        SELECT o FROM Order o
+        WHERE MONTH(o.orderDate) = :month
+        AND YEAR(o.orderDate) = :year
+        ORDER BY o.orderDate DESC, o.createdAt DESC
+    """)
+    List<Order> findAllByMonth(
+            @Param("month") int month,
+            @Param("year")  int year
+    );
+
+    // ✅ Get orders by month + year + store
+    @Query("""
+        SELECT o FROM Order o
+        WHERE MONTH(o.orderDate) = :month
+        AND YEAR(o.orderDate) = :year
+        AND o.storeId = :storeId
+        ORDER BY o.orderDate DESC, o.createdAt DESC
+    """)
+    List<Order> findAllByMonthAndStore(
+            @Param("month")   int month,
+            @Param("year")    int year,
+            @Param("storeId") String storeId
+    );
+
+    // ✅ Get orders by store only (all time)
+    List<Order> findByStoreIdOrderByOrderDateDescCreatedAtDesc(String storeId);
+
+    // ✅ Count orders by month for summary
+    @Query("""
+        SELECT COUNT(o) FROM Order o
+        WHERE MONTH(o.orderDate) = :month
+        AND YEAR(o.orderDate) = :year
+        AND o.storeId = :storeId
+    """)
+    long countByMonthAndStore(
+            @Param("month")   int month,
+            @Param("year")    int year,
+            @Param("storeId") String storeId
+    );
 }
