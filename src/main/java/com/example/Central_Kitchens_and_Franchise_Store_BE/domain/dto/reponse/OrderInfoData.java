@@ -1,8 +1,10 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
 public class OrderInfoData {
     private String order_code;
     private String status;
