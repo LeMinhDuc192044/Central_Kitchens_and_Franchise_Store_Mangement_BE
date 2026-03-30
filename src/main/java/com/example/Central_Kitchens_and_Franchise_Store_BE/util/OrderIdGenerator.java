@@ -24,6 +24,14 @@ public class OrderIdGenerator {
             return PREFIX + "001";
         }
 
+        String lastId = lastOrder.getOrderId();
+
+        // ── Handle both formats: ORD001 and future longer IDs ─────────────────
+        if (!lastId.startsWith(PREFIX)) {
+            log.warn("Last order ID [{}] does not start with prefix [{}], resetting to ORD001", lastId, PREFIX);
+            return PREFIX + "001";
+        }
+
         // Extract số từ orderId cuối
         int currentNumber = extractNumber(lastOrder.getOrderId());
         int nextNumber = currentNumber + 1;
