@@ -1,5 +1,6 @@
 package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.InvoiceStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -26,7 +27,8 @@ public class OrderInvoice {
     private BigDecimal totalAmount;
 
     @Column(name = "invoice_status")
-    private String invoiceStatus;
+    @Enumerated(EnumType.STRING)
+    private InvoiceStatus invoiceStatus;
 
     @Column(name = "paid_date")
     private LocalDate paidDate;

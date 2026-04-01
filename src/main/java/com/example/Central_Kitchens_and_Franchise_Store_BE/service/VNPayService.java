@@ -5,10 +5,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.Cr
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.reponse.PaymentResultResponse;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentMethod;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentOption;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.PaymentStatus;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.VNPayResponseCode;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.util.VNPayUtil;
@@ -302,7 +299,7 @@ public class VNPayService {
                             orderRepository.save(o);
 
                             orderInvoiceRepository.findByOrderId(o.getOrderId()).ifPresent(invoice -> {
-                                invoice.setInvoiceStatus("PAID");
+                                invoice.setInvoiceStatus(InvoiceStatus.PAID);
                                 invoice.setPaymentType("CREDIT");
                                 invoice.setTotalAmount(BigDecimal.valueOf(o.getOrderDetail().getAmount().longValue()));
                                 invoice.setPaidDate(LocalDate.now());
@@ -319,7 +316,7 @@ public class VNPayService {
             // ── Cập nhật invoice (PAY_AFTER_ORDER) ───────────────
             if (orderId != null) {
                 orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
-                    invoice.setInvoiceStatus("PAID");
+                    invoice.setInvoiceStatus(InvoiceStatus.PAID);
                     invoice.setTotalAmount(BigDecimal.valueOf(payment.getAmount()));
                     invoice.setPaidDate(LocalDate.now());
                     orderInvoiceRepository.save(invoice);
@@ -393,7 +390,7 @@ public class VNPayService {
 
         // ✅ Cập nhật Invoice → REFUNDED
         orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
-            invoice.setInvoiceStatus("REFUNDED");
+            invoice.setInvoiceStatus(InvoiceStatus.REFUNDED);
             orderInvoiceRepository.save(invoice);
             log.info("Invoice of order {} → REFUNDED", orderId);
         });
