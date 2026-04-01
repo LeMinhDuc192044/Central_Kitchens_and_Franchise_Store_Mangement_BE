@@ -3,10 +3,7 @@ package com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities;
 
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.FoodStatus;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Future;
-import jakarta.validation.constraints.Past;
-import jakarta.validation.constraints.PastOrPresent;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -30,7 +27,7 @@ public class CentralFoods {
     private String foodName;
 
     @Column(name = "amount")
-    @Positive
+    @PositiveOrZero
     private BigDecimal amount;
 
     @Column(name = "expiry_date")
