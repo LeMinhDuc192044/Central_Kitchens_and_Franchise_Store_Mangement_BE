@@ -90,10 +90,7 @@ public class CentralFoodsService {
                             "CentralFood not found with ID: " + foodId));
 
             if (food.getAmount().compareTo(quantityToDeduct) < 0) {
-                throw new IllegalStateException(
-                        "Insufficient stock for food [" + food.getFoodName() + "]. "
-                                + "Available: " + food.getAmount()
-                                + ", Requested: " + quantityToDeduct);
+                quantityToDeduct = food.getAmount();
             }
 
             BigDecimal previousAmount = food.getAmount();
