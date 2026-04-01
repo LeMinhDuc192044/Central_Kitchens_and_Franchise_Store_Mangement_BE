@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 
 @Service
 @RequiredArgsConstructor
@@ -23,17 +26,23 @@ public class OrderInvoiceService {
     public OrderInvoiceResponse getInvoiceByOrderId(String orderId) {
         OrderInvoice invoice = orderInvoiceRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found for orderId: " + orderId));
-        return mapToResponse(invoice, orderId); // ← truyền thêm orderId
+        return mapToResponse(invoice);
     }
 
-    private OrderInvoiceResponse mapToResponse(OrderInvoice invoice, String orderId) {
-        String realOrderId = orderRepository.findOrderIdByOrderDetailId(invoice.getOrderId());
+    public List<OrderInvoiceResponse> getAllInvoice() {
+        return orderInvoiceRepository.findAll().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    private OrderInvoiceResponse mapToResponse(OrderInvoice invoice) {
+
 
 
         return OrderInvoiceResponse.builder()
                 .orderInvoiceId(invoice.getOrderInvoiceId())
                 .orderId(invoice.getOrderId())
-                .invoiceStatus(invoice.getInvoiceStatus())
+                .invoiceStatus(String.valueOf(invoice.getInvoiceStatus()))
                 .paymentType(invoice.getPaymentType())
                 .totalAmount(invoice.getTotalAmount())
                 .paidDate(invoice.getPaidDate())

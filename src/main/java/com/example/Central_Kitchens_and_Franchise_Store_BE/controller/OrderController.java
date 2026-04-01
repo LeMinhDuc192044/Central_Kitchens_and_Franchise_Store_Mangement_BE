@@ -355,5 +355,13 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrdersByOrderDate(orderDate));
     }
 
+    @GetMapping("/all-invoices")
+    @PreAuthorize("hasAnyRole('CENTRAL_KITCHEN_STAFF','SUPPLY_COORDINATOR', 'MANAGER', 'ADMIN')")
+    @Operation(summary = "Get all invoices")
+    public ResponseEntity<List<OrderInvoiceResponse>> getAllInvoices() {
+        List<OrderInvoiceResponse> orders = orderInvoiceService.getAllInvoice();
+        return ResponseEntity.ok(orders);
+    }
+
 
 }

@@ -8,10 +8,7 @@ import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.dto.request.Up
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.entities.*;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.BatchStatus;
 import com.example.Central_Kitchens_and_Franchise_Store_BE.domain.enums.OrderStatus;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.CentralFoodsRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.KitchenConfigRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.OrderRepository;
-import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.SupplyBatchRepository;
+import com.example.Central_Kitchens_and_Franchise_Store_BE.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +29,7 @@ public class SupplyService {
     private final SupplyBatchRepository  supplyBatchRepository;
     private final CentralFoodsRepository centralFoodsRepository;
     private final KitchenConfigRepository kitchenConfigRepository;
+    private final FranchiseStoreRepository franchiseStoreRepository;
 
     private int getMaxTypesPerDay() {
         return kitchenConfigRepository.findByConfigKey("MAX_TYPES_PER_DAY")
@@ -676,6 +674,7 @@ public class SupplyService {
      */
     private Map<String, AggregatedFoodData> aggregateFoods(List<Order> orders) {
         Map<String, AggregatedFoodData> foodMap = new LinkedHashMap<>();
+        Map<String, String> storeNameCache = new HashMap<>();
 
         for (Order order : orders) {
             if (order.getOrderDetail() == null) continue;
@@ -694,7 +693,12 @@ public class SupplyService {
 
                 agg.totalQty += item.getQuantity();
 
-                String sourceKey = order.getOrderId() + " (" + order.getStoreId() + ")";
+                String storeName = storeNameCache.computeIfAbsent(order.getStoreId(), id ->
+                        franchiseStoreRepository.findById(id)
+                                .map(FranchiseStore::getStoreName)
+                                .orElse(id)
+                );
+                String sourceKey = order.getOrderId() + " (" + storeName + ")";
                 agg.sourceMap.merge(sourceKey, item.getQuantity(), Integer::sum);
             }
         }

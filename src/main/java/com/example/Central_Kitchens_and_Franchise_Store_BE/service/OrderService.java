@@ -116,7 +116,7 @@ public class OrderService {
                 .orderInvoiceId("INV-" + savedOrder.getOrderId())
                 .orderId(savedOrder.getOrderId())
                 .paymentType(String.valueOf(request.getPaymentMethod()))
-                .invoiceStatus("PENDING")
+                .invoiceStatus(InvoiceStatus.PENDING)
                 .totalAmount(totalAmount)
                 .paymentRecordId(paymentRecordId) // 👈 set String FK trực tiếp (null nếu không phải PAY_AT_THE_END_OF_MONTH)
                 .build();
@@ -315,7 +315,7 @@ public class OrderService {
 
         // ── Cập nhật invoice → CANCELLED ─────────────────────────
         orderInvoiceRepository.findByOrderId(orderId).ifPresent(invoice -> {
-            invoice.setInvoiceStatus("CANCELLED");
+            invoice.setInvoiceStatus(InvoiceStatus.CANCELLED);
             orderInvoiceRepository.save(invoice);
             log.info("Invoice of order {} → CANCELLED", orderId);
         });
@@ -345,6 +345,8 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
 
+        OrderInvoice orderInvoice = orderInvoiceRepository.findByOrderId(order.getOrderId()).orElseThrow(() -> new EntityNotFoundException("OrderInvoice not found: INV-" + orderId));
+
         if (order.getPaymentMethod() != PaymentMethod.CASH) {
             throw new IllegalStateException(
                     "Đơn hàng này không dùng phương thức CASH. Phương thức hiện tại: "
@@ -356,7 +358,10 @@ public class OrderService {
         }
 
         order.setPaymentStatus(PaymentStatus.SUCCESS);
+        orderInvoice.setInvoiceStatus(InvoiceStatus.PAID);
+        orderInvoice.setPaidDate(LocalDate.now());
         Order saved = orderRepository.save(order);
+        orderInvoiceRepository.save(orderInvoice);
         log.info("Order {} paid by CASH → payment status: SUCCESS", orderId);
         return toResponse(saved);
     }
