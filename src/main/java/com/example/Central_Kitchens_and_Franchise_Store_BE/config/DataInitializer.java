@@ -126,17 +126,7 @@ public class DataInitializer {
             );
 
 
-            createOrderIfNotExists("ORD001", 1, "Test order 1",           "PAY_AFTER_ORDER",         "CASH",   "SUCCESS",        LocalDate.of(2026,3,5),  "DELIVERED",         null,                    "STORE-D1-001", LocalDateTime.of(2026,3,5,8,30,0));
-            createOrderIfNotExists("ORD002", 2, "Test order 2",           "PAY_AFTER_DELIVERY",      "CREDIT", "SUCCESS",        LocalDate.of(2026,3,12), "COMPLETED",         null,                    "STORE-D1-001", LocalDateTime.of(2026,3,12,11,45,0));
-            createOrderIfNotExists("ORD003", 3, "Test order 3 cancelled", "PAY_AFTER_ORDER",         "CASH",   "CANCELLED",      LocalDate.of(2026,3,18), "CANCELLED",         "Customer changed mind",  "STORE-D1-001", LocalDateTime.of(2026,3,18,14,20,0));
-            createOrderIfNotExists("ORD004", 1, "Test order 4",           "PAY_AT_THE_END_OF_MONTH", "CREDIT", "PENDING",        LocalDate.of(2026,3,25), "IN_PROGRESS",       null,                    "STORE-D1-001", LocalDateTime.of(2026,3,25,19,55,0));
-            createOrderIfNotExists("ORD005", 2, "Test order 5",           "PAY_AFTER_ORDER",         "CREDIT", "SUCCESS",        LocalDate.of(2026,3,8),  "DELIVERED",         null,                    "STORE-D2-001", LocalDateTime.of(2026,3,8,9,10,0));
-            createOrderIfNotExists("ORD006", 1, "Test order 6",           "PAY_AFTER_DELIVERY",      "CASH",   "SUCCESS",        LocalDate.of(2026,2,14), "COMPLETED",         null,                    "STORE-D2-001", LocalDateTime.of(2026,2,14,13,30,0));
-            createOrderIfNotExists("ORD007", 3, "Test order 7",           "PAY_AT_THE_END_OF_MONTH", "CREDIT", "PENDING",        LocalDate.of(2026,3,20), "COOKING_DONE",      null,                    "STORE-D2-001", LocalDateTime.of(2026,3,20,17,45,0));
-            createOrderIfNotExists("ORD008", 1, "Test order 8",           "PAY_AFTER_ORDER",         "CASH",   "SUCCESS",        LocalDate.of(2026,3,1),  "DELIVERED",         null,                    "STORE-D3-001", LocalDateTime.of(2026,3,1,10,0,0));
-            createOrderIfNotExists("ORD009", 2, "Test order 9",           "PAY_AFTER_DELIVERY",      "CREDIT", "PENDING_REFUND", LocalDate.of(2026,2,20), "WAITING_TO_RETURN", null,                    "STORE-D3-001", LocalDateTime.of(2026,2,20,15,20,0));
-            createOrderIfNotExists("ORD010", 3, "Test order 10 cancelled","PAY_AFTER_ORDER",         "CASH",   "CANCELLED",      LocalDate.of(2026,3,15), "CANCELLED",         "Out of stock",          "STORE-D3-001", LocalDateTime.of(2026,3,15,21,30,0));
-            // ── Food Categories ──────────────────────────────
+
             createCategoryIfNotExists("CE_CH_482917", "Chicken");
             createCategoryIfNotExists("CE_NO_739204", "Noodle");
             createCategoryIfNotExists("CE_CA_156893", "Cake");
@@ -172,39 +162,7 @@ public class DataInitializer {
 
     }
 
-
-    private void createOrderIfNotExists(
-            String orderId,
-            Integer priorityLevel,
-            String note,
-            String paymentOption,
-            String paymentMethod,
-            String paymentStatus,
-            LocalDate orderDate,
-            String statusOrder,
-            String cancelReason,
-            String storeId,
-            LocalDateTime createdAt
-    ) {
-        if (orderRepository.existsById(orderId)) return;
-
-        Order order = Order.builder()
-                .orderId(orderId)
-                .priorityLevel(priorityLevel)
-                .note(note)
-                .paymentOption(PaymentOption.valueOf(paymentOption))
-                .paymentMethod(PaymentMethod.valueOf(paymentMethod))
-                .paymentStatus(PaymentStatus.valueOf(paymentStatus))
-                .orderDate(orderDate)
-                .statusOrder(OrderStatus.valueOf(statusOrder))
-                .cancelReason(cancelReason)
-                .storeId(storeId)
-                .createdAt(createdAt)
-                .build();
-
-        orderRepository.save(order);
-    }
-
+    
     private void createRoleIfNotExists(UserRole roleName) {
         roleRepository.findByName(roleName)
                 .orElseGet(() -> roleRepository.save(
